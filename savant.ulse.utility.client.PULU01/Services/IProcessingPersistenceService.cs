@@ -2,7 +2,7 @@ using savant.ulse.utility.client.PULU01.Models;
 
 namespace savant.ulse.utility.client.PULU01.Services;
 
-public interface IResumeTrackingService
+public interface IProcessingPersistenceService
 {
     Task<HashSet<string>> LoadProcessedRecordsAsync(CancellationToken cancellationToken = default);
     Task SaveSuccessfulRecordsAsync(IEnumerable<DonationRecord> records, CancellationToken cancellationToken = default);

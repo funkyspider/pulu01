@@ -23,8 +23,8 @@ public static class ServiceCollectionExtensions
         // API client (mock implementation - replace with real API client when ready)
         services.AddScoped<IApiClientService, MockApiClientService>();
         
-        // Resume and progress tracking
-        services.AddScoped<IResumeTrackingService, ResumeTrackingService>();
+        // Processing persistence and progress tracking
+        services.AddScoped<IProcessingPersistenceService, ProcessingPersistenceService>();
         services.AddScoped<IProgressTrackingService, ProgressTrackingService>();
         
         return services;

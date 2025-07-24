@@ -10,20 +10,20 @@ public class ProcessingWorkerService : IProcessingWorkerService
     private readonly ILogger<ProcessingWorkerService> _logger;
     private readonly AppConfiguration _configuration;
     private readonly IApiClientService _apiClientService;
-    private readonly IResumeTrackingService _resumeTrackingService;
+    private readonly IProcessingPersistenceService _processingPersistenceService;
     private readonly IProgressTrackingService _progressTrackingService;
 
     public ProcessingWorkerService(
         ILogger<ProcessingWorkerService> logger,
         AppConfiguration configuration,
         IApiClientService apiClientService,
-        IResumeTrackingService resumeTrackingService,
+        IProcessingPersistenceService processingPersistenceService,
         IProgressTrackingService progressTrackingService)
     {
         _logger = logger;
         _configuration = configuration;
         _apiClientService = apiClientService;
-        _resumeTrackingService = resumeTrackingService;
+        _processingPersistenceService = processingPersistenceService;
         _progressTrackingService = progressTrackingService;
     }
 
@@ -32,10 +32,10 @@ public class ProcessingWorkerService : IProcessingWorkerService
         var recordList = records.ToList();
         
         // Load processed records for resume functionality
-        var processedKeys = await _resumeTrackingService.LoadProcessedRecordsAsync(cancellationToken);
+        var processedKeys = await _processingPersistenceService.LoadProcessedRecordsAsync(cancellationToken);
         
         // Filter out already processed records
-        var unprocessedRecords = recordList.Where(r => !_resumeTrackingService.IsProcessed(r)).ToList();
+        var unprocessedRecords = recordList.Where(r => !_processingPersistenceService.IsProcessed(r)).ToList();
         var skippedCount = recordList.Count - unprocessedRecords.Count;
         
         if (skippedCount > 0)
@@ -111,12 +111,12 @@ public class ProcessingWorkerService : IProcessingWorkerService
         // Final flush of any remaining results
         if (successfulRecords.Count > 0)
         {
-            await _resumeTrackingService.SaveSuccessfulRecordsAsync(successfulRecords.ToList(), cancellationToken);
+            await _processingPersistenceService.SaveSuccessfulRecordsAsync(successfulRecords.ToList(), cancellationToken);
         }
         
         if (failedResults.Count > 0)
         {
-            await _resumeTrackingService.SaveFailedRecordsAsync(failedResults.ToList(), cancellationToken);
+            await _processingPersistenceService.SaveFailedRecordsAsync(failedResults.ToList(), cancellationToken);
         }
 
         // Display final summary
@@ -214,7 +214,7 @@ public class ProcessingWorkerService : IProcessingWorkerService
                     
                     if (recordsToSave.Count > 0)
                     {
-                        await _resumeTrackingService.SaveSuccessfulRecordsAsync(recordsToSave, cancellationToken);
+                        await _processingPersistenceService.SaveSuccessfulRecordsAsync(recordsToSave, cancellationToken);
                         lastSuccessCount = currentSuccessCount;
                     }
                 }
@@ -233,7 +233,7 @@ public class ProcessingWorkerService : IProcessingWorkerService
                     
                     if (resultsToSave.Count > 0)
                     {
-                        await _resumeTrackingService.SaveFailedRecordsAsync(resultsToSave, cancellationToken);
+                        await _processingPersistenceService.SaveFailedRecordsAsync(resultsToSave, cancellationToken);
                         lastFailedCount = currentFailedCount;
                     }
                 }

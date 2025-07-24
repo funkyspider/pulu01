@@ -6,16 +6,16 @@ using savant.ulse.utility.client.PULU01.Models;
 
 namespace savant.ulse.utility.client.PULU01.Services;
 
-public class ResumeTrackingService : IResumeTrackingService
+public class ProcessingPersistenceService : IProcessingPersistenceService
 {
-    private readonly ILogger<ResumeTrackingService> _logger;
+    private readonly ILogger<ProcessingPersistenceService> _logger;
     private readonly AppConfiguration _configuration;
     private readonly HashSet<string> _processedRecords = new();
     private readonly ConcurrentQueue<DonationRecord> _successBatch = new();
     private readonly ConcurrentQueue<ProcessingResult> _errorBatch = new();
     private readonly SemaphoreSlim _writeSemaphore = new(1, 1);
 
-    public ResumeTrackingService(ILogger<ResumeTrackingService> logger, AppConfiguration configuration)
+    public ProcessingPersistenceService(ILogger<ProcessingPersistenceService> logger, AppConfiguration configuration)
     {
         _logger = logger;
         _configuration = configuration;
