@@ -99,7 +99,14 @@ public class ProgressTrackingService : IProgressTrackingService
             Console.WriteLine();
             Console.WriteLine();
             Console.WriteLine("═══════════════════════════════════════════════════════════════");
-            Console.WriteLine("  🎉 Processing Complete!");
+            if (_processedCount < _totalRecords)
+            {
+                Console.WriteLine("  ⏹️  Processing Stopped (Ctrl+C pressed)");
+            }
+            else
+            {
+                Console.WriteLine("  🎉 Processing Complete!");
+            }
             Console.WriteLine("═══════════════════════════════════════════════════════════════");
             Console.WriteLine();
             Console.WriteLine($"  📊 Total Records:    {_totalRecords:N0}");

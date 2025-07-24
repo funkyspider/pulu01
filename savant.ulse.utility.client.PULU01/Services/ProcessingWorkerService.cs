@@ -105,25 +105,34 @@ public class ProcessingWorkerService : IProcessingWorkerService
         }
         catch (OperationCanceledException)
         {
-            _logger.LogWarning("Processing was cancelled");
+            _logger.LogDebug("Processing was cancelled by user request");
         }
-
-        // Final flush of any remaining results
-        if (successfulRecords.Count > 0)
+        finally
         {
-            await _processingPersistenceService.SaveSuccessfulRecordsAsync(successfulRecords.ToList(), cancellationToken);
-        }
-        
-        if (failedResults.Count > 0)
-        {
-            await _processingPersistenceService.SaveFailedRecordsAsync(failedResults.ToList(), cancellationToken);
-        }
+            // Final flush of any remaining results (use CancellationToken.None to ensure cleanup completes)
+            try
+            {
+                if (successfulRecords.Count > 0)
+                {
+                    await _processingPersistenceService.SaveSuccessfulRecordsAsync(successfulRecords.ToList(), CancellationToken.None);
+                }
+                
+                if (failedResults.Count > 0)
+                {
+                    await _processingPersistenceService.SaveFailedRecordsAsync(failedResults.ToList(), CancellationToken.None);
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error saving final results during cleanup");
+            }
 
-        // Display final summary
-        _progressTrackingService.DisplayFinalSummary();
-        
-        _logger.LogInformation("Processing completed. Successful: {Success}, Failed: {Failed}",
-            successfulRecords.Count, failedResults.Count);
+            // Always display final summary, even if cancelled
+            _progressTrackingService.DisplayFinalSummary();
+            
+            _logger.LogInformation("Processing completed. Successful: {Success}, Failed: {Failed}",
+                successfulRecords.Count, failedResults.Count);
+        }
     }
 
     private async Task ProcessWorkerQueue(

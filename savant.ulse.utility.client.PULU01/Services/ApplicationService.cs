@@ -30,6 +30,7 @@ public class ApplicationService : IApplicationService
             Console.WriteLine("═══════════════════════════════════════════════════════════════");
             Console.WriteLine("  PULU01 - Donation Hold Clearing Utility");
             Console.WriteLine("═══════════════════════════════════════════════════════════════");
+            Console.WriteLine("  💡 Press Ctrl+C to stop processing and view summary");
             Console.WriteLine();
             
             Console.Write("Reading CSV file... ");
@@ -51,8 +52,8 @@ public class ApplicationService : IApplicationService
         }
         catch (OperationCanceledException)
         {
-            _logger.LogWarning("Application processing was cancelled");
-            Console.WriteLine("Processing was cancelled by user request.");
+            _logger.LogDebug("Application processing was cancelled");
+            // Summary will be displayed by ProcessingWorkerService
         }
         catch (Exception ex)
         {
