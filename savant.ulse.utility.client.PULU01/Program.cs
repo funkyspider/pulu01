@@ -3,6 +3,7 @@ using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using System.CommandLine;
 using savant.ulse.utility.client.PULU01.Configuration;
+using savant.ulse.utility.client.PULU01.Extensions;
 using savant.ulse.utility.client.PULU01.Services;
 
 var threadsOption = new Option<int>(
@@ -46,13 +47,7 @@ rootCommand.SetHandler(async (threads, file) =>
     var host = Host.CreateDefaultBuilder()
         .ConfigureServices((context, services) =>
         {
-            services.AddSingleton(configuration);
-            services.AddScoped<IApplicationService, ApplicationService>();
-            services.AddScoped<ICsvReaderService, CsvReaderService>();
-            services.AddScoped<IProcessingWorkerService, ProcessingWorkerService>();
-            services.AddScoped<IApiClientService, MockApiClientService>();
-            services.AddScoped<IResumeTrackingService, ResumeTrackingService>();
-            services.AddScoped<IProgressTrackingService, ProgressTrackingService>();
+            services.AddPulu01Services(configuration);
         })
         .ConfigureLogging(logging =>
         {
