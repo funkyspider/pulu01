@@ -2,6 +2,7 @@ using Microsoft.Extensions.Logging;
 using System.Collections.Concurrent;
 using savant.ulse.utility.client.PULU01.Configuration;
 using savant.ulse.utility.client.PULU01.Models;
+using savant.ulse.utility.client.PULU01.Utilities;
 
 namespace savant.ulse.utility.client.PULU01.Services;
 
@@ -101,29 +102,29 @@ public class ProgressTrackingService : IProgressTrackingService
             Console.WriteLine("═══════════════════════════════════════════════════════════════");
             if (_processedCount < _totalRecords)
             {
-                Console.WriteLine("  ⏹️  Processing Stopped (Ctrl+C pressed)");
+                    Console.WriteLine($"  {ConsoleHelper.Icons.Stopped}  Processing Stopped (Ctrl+C pressed)");
             }
             else
             {
-                Console.WriteLine("  🎉 Processing Complete!");
+                Console.WriteLine($"  {ConsoleHelper.Icons.Complete} Processing Complete!");
             }
             Console.WriteLine("═══════════════════════════════════════════════════════════════");
             Console.WriteLine();
-            Console.WriteLine($"  📊 Total Records:    {_totalRecords:N0}");
-            Console.WriteLine($"  ✅ Successful:       {_successCount:N0} ({GetPercentage(_successCount, _processedCount):F1}%)");
-            Console.WriteLine($"  ❌ Failed:           {_failedCount:N0} ({GetPercentage(_failedCount, _processedCount):F1}%)");
-            Console.WriteLine($"  ⏭️  Skipped:          {_skippedCount:N0} ({GetPercentage(_skippedCount, _processedCount):F1}%)");
+            Console.WriteLine($"  {ConsoleHelper.Icons.Stats} Total Records:    {_totalRecords:N0}");
+            Console.WriteLine($"  {ConsoleHelper.Icons.Success} Successful:       {_successCount:N0} ({GetPercentage(_successCount, _processedCount):F1}%)");
+            Console.WriteLine($"  {ConsoleHelper.Icons.Failed} Failed:           {_failedCount:N0} ({GetPercentage(_failedCount, _processedCount):F1}%)");
+            Console.WriteLine($"  {ConsoleHelper.Icons.Skipped} Skipped:          {_skippedCount:N0} ({GetPercentage(_skippedCount, _processedCount):F1}%)");
             Console.WriteLine();
-            Console.WriteLine($"  ⏱️  Duration:         {FormatDuration(totalDuration)}");
-            Console.WriteLine($"  🚀 Processing Rate:  {recordsPerSecond:F1} records/second");
+            Console.WriteLine($"  {ConsoleHelper.Icons.Duration}  Duration:         {FormatDuration(totalDuration)}");
+            Console.WriteLine($"  {ConsoleHelper.Icons.Speed} Processing Rate:  {recordsPerSecond:F1} records/second");
             Console.WriteLine();
 
             if (_failedCount > 0)
             {
-                Console.WriteLine($"  📋 Error Log:        {_configuration.ErrorLogPath}");
+                Console.WriteLine($"  {ConsoleHelper.Icons.ErrorLog} Error Log:        {_configuration.ErrorLogPath}");
             }
             
-            Console.WriteLine($"  📋 Success Log:      {_configuration.SuccessLogPath}");
+            Console.WriteLine($"  {ConsoleHelper.Icons.SuccessLog} Success Log:      {_configuration.SuccessLogPath}");
             Console.WriteLine();
             Console.WriteLine("═══════════════════════════════════════════════════════════════");
 
@@ -153,8 +154,8 @@ public class ProgressTrackingService : IProgressTrackingService
         
         Console.Write($"\r{progressBar} {percentage:F1}% " +
                      $"({_processedCount:N0}/{_totalRecords:N0}) " +
-                     $"✅ {_successCount:N0} | ❌ {_failedCount:N0} | ⏭️ {_skippedCount:N0} " +
-                     $"| 🚀 {recordsPerSecond:F1}/s");
+                     $"{ConsoleHelper.Icons.Success} {_successCount:N0} | {ConsoleHelper.Icons.Failed} {_failedCount:N0} | {ConsoleHelper.Icons.Skipped} {_skippedCount:N0} " +
+                     $"| {ConsoleHelper.Icons.Speed} {recordsPerSecond:F1}/s");
         
         if (eta > TimeSpan.Zero && _processedCount < _totalRecords)
         {
@@ -168,7 +169,7 @@ public class ProgressTrackingService : IProgressTrackingService
         var filled = (int)(percentage / 100 * width);
         var empty = width - filled;
         
-        return "[" + new string('█', filled) + new string('░', empty) + "]";
+        return "[" + new string(ConsoleHelper.Icons.ProgressFilled, filled) + new string(ConsoleHelper.Icons.ProgressEmpty, empty) + "]";
     }
 
     private double GetPercentage(int value, int total)

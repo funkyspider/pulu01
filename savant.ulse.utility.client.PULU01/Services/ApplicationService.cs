@@ -1,5 +1,6 @@
 using Microsoft.Extensions.Logging;
 using savant.ulse.utility.client.PULU01.Configuration;
+using savant.ulse.utility.client.PULU01.Utilities;
 
 namespace savant.ulse.utility.client.PULU01.Services;
 
@@ -30,7 +31,7 @@ public class ApplicationService : IApplicationService
             Console.WriteLine("═══════════════════════════════════════════════════════════════");
             Console.WriteLine("  PULU01 - Donation Hold Clearing Utility");
             Console.WriteLine("═══════════════════════════════════════════════════════════════");
-            Console.WriteLine("  💡 Press Ctrl+C to stop processing and view summary");
+            Console.WriteLine("  INFO Press Ctrl+C to stop processing and view summary");
             Console.WriteLine();
             
             Console.Write("Reading CSV file... ");
@@ -39,11 +40,11 @@ public class ApplicationService : IApplicationService
 
             if (recordList.Count == 0)
             {
-                Console.WriteLine("❌ No valid records found in the CSV file.");
+                Console.WriteLine($"{ConsoleHelper.Icons.Failed} No valid records found in the CSV file.");
                 return;
             }
 
-            Console.WriteLine($"✅ {recordList.Count:N0} records loaded");
+            Console.WriteLine($"{ConsoleHelper.Icons.Success} {recordList.Count:N0} records loaded");
             Console.WriteLine();
 
             await _processingWorkerService.ProcessRecordsAsync(recordList, cancellationToken);

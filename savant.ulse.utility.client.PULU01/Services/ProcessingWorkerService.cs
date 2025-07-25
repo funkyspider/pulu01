@@ -2,6 +2,7 @@ using Microsoft.Extensions.Logging;
 using System.Collections.Concurrent;
 using savant.ulse.utility.client.PULU01.Configuration;
 using savant.ulse.utility.client.PULU01.Models;
+using savant.ulse.utility.client.PULU01.Utilities;
 
 namespace savant.ulse.utility.client.PULU01.Services;
 
@@ -40,16 +41,16 @@ public class ProcessingWorkerService : IProcessingWorkerService
         
         if (skippedCount > 0)
         {
-            Console.WriteLine($"📋 Found {skippedCount:N0} already processed records (resuming from previous run)");
+            Console.WriteLine($"{ConsoleHelper.Icons.SuccessLog} Found {skippedCount:N0} already processed records (resuming from previous run)");
         }
 
         if (unprocessedRecords.Count == 0)
         {
-            Console.WriteLine("✅ All records have already been processed!");
+            Console.WriteLine($"{ConsoleHelper.Icons.Success} All records have already been processed!");
             return;
         }
 
-        Console.WriteLine($"🚀 Processing {unprocessedRecords.Count:N0} remaining records using {_configuration.ThreadCount} threads");
+        Console.WriteLine($"{ConsoleHelper.Icons.Speed} Processing {unprocessedRecords.Count:N0} remaining records using {_configuration.ThreadCount} threads");
         Console.WriteLine();
 
         // Initialize progress tracking
