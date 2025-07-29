@@ -104,22 +104,37 @@ dotnet clean
 ## Testing & Sample Data
 
 Available test files:
-- `sample_data.csv` - 10 records with header
-- `small_test.csv` - 3 records without header  
-- `test_data_20k.csv` - 20,000 records for performance testing
-- `realData.csv` - Production data file
+- `HolsToClear_3.csv` - 3 records with proper header format (DNTNO, HDATE, HTIME, PRDCD, RSHLD, etc.)
+- `HoldsToClear.csv` - ~9,264 records for performance testing with proper header format
 
 Test commands:
 ```bash
 # Quick test with small dataset
-dotnet run -- --threads 3 --file sample_data.csv
+dotnet run -- --threads 3 --file HolsToClear_3.csv
 
 # Performance test with larger dataset
-dotnet run -- --threads 10 --file test_data_20k.csv
+dotnet run -- --threads 10 --file HoldsToClear.csv
 
 # Resume functionality test (run, stop with Ctrl+C, then re-run)
-dotnet run -- --threads 5 --file sample_data.csv
+dotnet run -- --threads 5 --file HolsToClear_3.csv
 ```
+
+## CSV Format Requirements
+
+The application now supports the customer-supplied format with these required headers:
+- `DNTNO` - Donation Number (maps to DonationNumber, trimmed) - flexible length for different batch codes
+- `HDATE` - Hold Date in YYYYMMDD format  
+- `HTIME` - Hold Time in HHMMSSzzz format
+- `PRDCD` - Product Code (maps to ProductCode) - must be exactly 4 characters
+- `RSHLD` - Hold Code (maps to HoldCode) - must be more than 1 character
+
+Additional columns are ignored. HDATE and HTIME are combined into a single DateTime field.
+
+## Validation Rules
+
+- **Donation Number**: Any non-empty string (flexible length to accommodate different batch code formats)
+- **Product Code**: Exactly 4 characters
+- **Hold Code**: More than 1 character (allows 2, 3, or more character codes)
 
 ## Dependencies
 

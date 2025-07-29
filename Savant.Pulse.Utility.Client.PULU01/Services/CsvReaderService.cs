@@ -30,10 +30,22 @@ public class CsvReaderService : ICsvReaderService
             return records;
         }
 
-        var hasHeader = DetectHeader(firstLine);
-        if (!hasHeader)
+        var headerInfo = DetectHeaderFormat(firstLine);
+        if (headerInfo.HasHeader)
         {
-            var record = ParseLine(firstLine, ++lineNumber);
+            _logger.LogInformation("Detected header row: {HeaderType}", headerInfo.IsNewFormat ? "New format" : "Legacy format");
+            lineNumber++;
+            
+            if (headerInfo.IsNewFormat && !headerInfo.IsValid)
+            {
+                _logger.LogError("Invalid header format. Missing required fields. Expected: DNTNO, HDATE, HTIME, PRDCD, RSHLD");
+                throw new InvalidOperationException("CSV file missing required headers: DNTNO, HDATE, HTIME, PRDCD, RSHLD");
+            }
+        }
+        else
+        {
+            // No header, process first line as data (legacy format)
+            var record = ParseLegacyLine(firstLine, ++lineNumber);
             if (record != null)
             {
                 records.Add(record);
@@ -44,11 +56,6 @@ public class CsvReaderService : ICsvReaderService
                 invalidRecords++;
             }
         }
-        else
-        {
-            _logger.LogInformation("Detected header row, skipping first line");
-            lineNumber++;
-        }
 
         while (!reader.EndOfStream && !cancellationToken.IsCancellationRequested)
         {
@@ -56,7 +63,16 @@ public class CsvReaderService : ICsvReaderService
             if (string.IsNullOrWhiteSpace(line))
                 continue;
 
-            var record = ParseLine(line, ++lineNumber);
+            DonationRecord? record;
+            if (headerInfo.IsNewFormat)
+            {
+                record = ParseNewFormatLine(line, headerInfo.FieldMapping!, ++lineNumber);
+            }
+            else
+            {
+                record = ParseLegacyLine(line, ++lineNumber);
+            }
+
             if (record != null)
             {
                 records.Add(record);
@@ -74,15 +90,112 @@ public class CsvReaderService : ICsvReaderService
         return records;
     }
 
-    private bool DetectHeader(string firstLine)
+    private HeaderInfo DetectHeaderFormat(string firstLine)
     {
         var parts = SplitCsvLine(firstLine);
-        if (parts.Length != 3) return false;
-
-        return parts.Any(p => !char.IsDigit(p.FirstOrDefault()) && !p.StartsWith("G"));
+        
+        // Check for new format headers
+        var requiredNewHeaders = new[] { "DNTNO", "HDATE", "HTIME", "PRDCD", "RSHLD" };
+        var headerParts = parts.Select(p => p.Trim().ToUpper()).ToArray();
+        
+        if (requiredNewHeaders.All(h => headerParts.Contains(h)))
+        {
+            // New format with all required headers
+            var fieldMapping = new Dictionary<string, int>();
+            for (int i = 0; i < headerParts.Length; i++)
+            {
+                fieldMapping[headerParts[i]] = i;
+            }
+            
+            return new HeaderInfo
+            {
+                HasHeader = true,
+                IsNewFormat = true,
+                IsValid = true,
+                FieldMapping = fieldMapping
+            };
+        }
+        
+        // Check for legacy 3-field format header first
+        if (parts.Length == 3 && parts.Any(p => !char.IsDigit(p.Trim().FirstOrDefault()) && !p.Trim().StartsWith("G")))
+        {
+            return new HeaderInfo
+            {
+                HasHeader = true,
+                IsNewFormat = false,
+                IsValid = true,
+                FieldMapping = null
+            };
+        }
+        
+        // Check if it looks like a header but missing required fields (for new format)
+        if (parts.Any(p => !char.IsDigit(p.Trim().FirstOrDefault()) && !p.Trim().StartsWith("G")))
+        {
+            return new HeaderInfo
+            {
+                HasHeader = true,
+                IsNewFormat = true,
+                IsValid = false,
+                FieldMapping = null
+            };
+        }
+        
+        
+        // No header detected - treat as data
+        return new HeaderInfo
+        {
+            HasHeader = false,
+            IsNewFormat = parts.Length > 3,
+            IsValid = true,
+            FieldMapping = null
+        };
     }
 
-    private DonationRecord? ParseLine(string line, int lineNumber)
+    private DonationRecord? ParseNewFormatLine(string line, Dictionary<string, int> fieldMapping, int lineNumber)
+    {
+        try
+        {
+            var parts = SplitCsvLine(line);
+            
+            if (parts.Length < fieldMapping.Values.Max() + 1)
+            {
+                _logger.LogWarning("Line {LineNumber}: Expected at least {ExpectedFields} fields, found {FieldCount}", 
+                    lineNumber, fieldMapping.Values.Max() + 1, parts.Length);
+                return null;
+            }
+
+            var donationNumber = parts[fieldMapping["DNTNO"]].Trim();
+            var productCode = parts[fieldMapping["PRDCD"]].Trim();
+            var holdCode = parts[fieldMapping["RSHLD"]].Trim();
+            var hdate = parts[fieldMapping["HDATE"]].Trim();
+            var htime = parts[fieldMapping["HTIME"]].Trim();
+
+            var holdDateTime = DonationRecord.ParseHoldDateTime(hdate, htime);
+            var record = new DonationRecord(donationNumber, productCode, holdCode, holdDateTime);
+            
+            if (!record.IsValid())
+            {
+                _logger.LogWarning("Line {LineNumber}: Invalid record format - Donation: {DonationNumber} ({Length}), Product: {ProductCode} ({Length2}), Hold: {HoldCode} ({Length3})",
+                    lineNumber, donationNumber, donationNumber.Length, productCode, productCode.Length, holdCode, holdCode.Length);
+                return null;
+            }
+
+            if (holdDateTime == null)
+            {
+                _logger.LogWarning("Line {LineNumber}: Invalid date/time format - HDATE: {HDate}, HTIME: {HTime}", 
+                    lineNumber, hdate, htime);
+            }
+
+            return record;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Line {LineNumber}: Error parsing line: {Line}", lineNumber, line);
+            return null;
+        }
+    }
+
+    private DonationRecord? ParseLegacyLine(string line, int lineNumber)
     {
         try
         {
@@ -143,5 +256,13 @@ public class CsvReaderService : ICsvReaderService
         
         parts.Add(current);
         return parts.ToArray();
+    }
+
+    private class HeaderInfo
+    {
+        public bool HasHeader { get; set; }
+        public bool IsNewFormat { get; set; }
+        public bool IsValid { get; set; }
+        public Dictionary<string, int>? FieldMapping { get; set; }
     }
 }
