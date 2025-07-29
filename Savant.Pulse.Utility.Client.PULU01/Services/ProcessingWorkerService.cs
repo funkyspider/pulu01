@@ -113,6 +113,7 @@ public class ProcessingWorkerService : IProcessingWorkerService
             // Final flush of any remaining results (use CancellationToken.None to ensure cleanup completes)
             try
             {
+                // Save any remaining records to the batches first
                 if (successfulRecords.Count > 0)
                 {
                     await _processingPersistenceService.SaveSuccessfulRecordsAsync(successfulRecords.ToList(), CancellationToken.None);
@@ -122,6 +123,9 @@ public class ProcessingWorkerService : IProcessingWorkerService
                 {
                     await _processingPersistenceService.SaveFailedRecordsAsync(failedResults.ToList(), CancellationToken.None);
                 }
+                
+                // Force flush all remaining batched records to disk
+                await _processingPersistenceService.FlushAllAsync(CancellationToken.None);
             }
             catch (Exception ex)
             {
@@ -163,6 +167,8 @@ public class ProcessingWorkerService : IProcessingWorkerService
                     else
                     {
                         failedResults.Add(result);
+                        // Write failures immediately since they're rare
+                        await _processingPersistenceService.SaveFailedRecordsAsync(new[] { result }, cancellationToken);
                     }
                     
                     _progressTrackingService.ReportProgress(result);
@@ -173,6 +179,8 @@ public class ProcessingWorkerService : IProcessingWorkerService
                     
                     var errorResult = ProcessingResult.CreateFailure(record, $"Worker error: {ex.Message}");
                     failedResults.Add(errorResult);
+                    // Write failures immediately since they're rare
+                    await _processingPersistenceService.SaveFailedRecordsAsync(new[] { errorResult }, CancellationToken.None);
                     _progressTrackingService.ReportProgress(errorResult);
                 }
                 finally

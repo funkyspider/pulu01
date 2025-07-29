@@ -76,21 +76,17 @@ public class ProcessingPersistenceService : IProcessingPersistenceService
 
     public async Task SaveFailedRecordsAsync(IEnumerable<ProcessingResult> results, CancellationToken cancellationToken = default)
     {
+        // Write failures immediately since they're rare
         foreach (var result in results)
         {
-            _errorBatch.Enqueue(result);
-        }
-
-        if (_errorBatch.Count >= _configuration.FileWriteBatchSize)
-        {
-            await FlushFailedRecordsAsync(cancellationToken);
+            await WriteFailedRecordImmediately(result, cancellationToken);
         }
     }
 
     public async Task FlushAllAsync(CancellationToken cancellationToken = default)
     {
         await FlushSuccessfulRecordsAsync(cancellationToken);
-        await FlushFailedRecordsAsync(cancellationToken);
+        // No need to flush failed records since they're written immediately
     }
 
     private async Task FlushSuccessfulRecordsAsync(CancellationToken cancellationToken = default)
@@ -140,52 +136,38 @@ public class ProcessingPersistenceService : IProcessingPersistenceService
         }
     }
 
-    private async Task FlushFailedRecordsAsync(CancellationToken cancellationToken = default)
+    private async Task WriteFailedRecordImmediately(ProcessingResult result, CancellationToken cancellationToken = default)
     {
-        if (_errorBatch.IsEmpty) return;
-
         await _writeSemaphore.WaitAsync(cancellationToken);
         try
         {
-            var errorsToWrite = new List<ProcessingResult>();
-            while (_errorBatch.TryDequeue(out var error))
+            var failedRecord = new FailedRecord
             {
-                errorsToWrite.Add(error);
-            }
+                Key = result.Record.GetKey(),
+                DonationNumber = result.Record.DonationNumber,
+                ProductCode = result.Record.ProductCode,
+                HoldCode = result.Record.HoldCode,
+                ErrorMessage = result.ErrorMessage ?? "Unknown error",
+                FailedAt = result.ProcessedAt
+            };
 
-            if (errorsToWrite.Count == 0) return;
+            // Append single record as JSON line to avoid reading entire file
+            var json = JsonSerializer.Serialize(failedRecord, new JsonSerializerOptions { WriteIndented = false });
+            await File.AppendAllTextAsync(_configuration.ErrorLogPath, json + Environment.NewLine, cancellationToken);
 
-            var existingErrors = new List<FailedRecord>();
-            if (File.Exists(_configuration.ErrorLogPath))
-            {
-                var existingJson = await File.ReadAllTextAsync(_configuration.ErrorLogPath, cancellationToken);
-                if (!string.IsNullOrWhiteSpace(existingJson))
-                {
-                    existingErrors = JsonSerializer.Deserialize<List<FailedRecord>>(existingJson) ?? new List<FailedRecord>();
-                }
-            }
-
-            var newErrors = errorsToWrite.Select(r => new FailedRecord
-            {
-                Key = r.Record.GetKey(),
-                DonationNumber = r.Record.DonationNumber,
-                ProductCode = r.Record.ProductCode,
-                HoldCode = r.Record.HoldCode,
-                ErrorMessage = r.ErrorMessage ?? "Unknown error",
-                FailedAt = r.ProcessedAt
-            });
-
-            existingErrors.AddRange(newErrors);
-
-            var json = JsonSerializer.Serialize(existingErrors, new JsonSerializerOptions { WriteIndented = true });
-            await File.WriteAllTextAsync(_configuration.ErrorLogPath, json, cancellationToken);
-
-            _logger.LogDebug("Saved {Count} failed records to {FilePath}", errorsToWrite.Count, _configuration.ErrorLogPath);
+            _logger.LogDebug("Saved failed record to {FilePath}: {Key}", _configuration.ErrorLogPath, failedRecord.Key);
         }
         finally
         {
             _writeSemaphore.Release();
         }
+    }
+
+    private async Task FlushFailedRecordsAsync(CancellationToken cancellationToken = default)
+    {
+        // This method is now obsolete since we write failures immediately
+        // Kept for compatibility but does nothing
+        await Task.CompletedTask;
     }
 
     private class ProcessedRecord
