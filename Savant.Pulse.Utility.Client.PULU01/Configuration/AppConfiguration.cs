@@ -1,4 +1,4 @@
-namespace savant.ulse.utility.client.PULU01.Configuration;
+namespace Savant.Pulse.Utility.Client.PULU01.Configuration;
 
 public class AppConfiguration
 {

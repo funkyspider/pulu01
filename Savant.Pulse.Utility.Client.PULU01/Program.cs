@@ -2,9 +2,9 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using System.CommandLine;
-using savant.ulse.utility.client.PULU01.Configuration;
-using savant.ulse.utility.client.PULU01.Extensions;
-using savant.ulse.utility.client.PULU01.Services;
+using Savant.Pulse.Utility.Client.PULU01.Configuration;
+using Savant.Pulse.Utility.Client.PULU01.Extensions;
+using Savant.Pulse.Utility.Client.PULU01.Services;
 
 var threadsOption = new Option<int>(
     "--threads",

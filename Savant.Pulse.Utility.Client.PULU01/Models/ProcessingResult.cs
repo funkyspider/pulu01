@@ -1,4 +1,4 @@
-namespace savant.ulse.utility.client.PULU01.Models;
+namespace Savant.Pulse.Utility.Client.PULU01.Models;
 
 public record ProcessingResult(
     DonationRecord Record,

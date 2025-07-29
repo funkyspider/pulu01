@@ -1,6 +1,6 @@
 using System.Runtime.InteropServices;
 
-namespace savant.ulse.utility.client.PULU01.Utilities;
+namespace Savant.Pulse.Utility.Client.PULU01.Utilities;
 
 public static class ConsoleHelper
 {

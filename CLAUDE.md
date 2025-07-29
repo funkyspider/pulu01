@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-This is a .NET 8 console application called PULU01 (savant.ulse.utility.client.PULU01) designed to clear holds placed on donation/product code combinations via API calls. The utility processes CSV files containing donation data and uses multi-threading for efficient processing.
+This is a .NET 8 console application called PULU01 (Savant.Pulse.Utility.Client.PULU01) designed to clear holds placed on donation/product code combinations via API calls. The utility processes CSV files containing donation data and uses multi-threading for efficient processing.
 
 ## Key Requirements & Architecture
 
@@ -47,13 +47,24 @@ dotnet build --configuration Release
 dotnet clean
 ```
 
-## Project Structure
+## Project Structure & Architecture
 
 - `PULU01.sln` - Solution file
-- `savant.ulse.utility.client.PULU01/` - Main project directory
-  - `Program.cs` - Entry point (currently minimal Hello World)
-  - `savant.ulse.utility.client.PULU01.csproj` - Project file (.NET 8, console app)
-  - `plan/plan.md` - Detailed requirements and specifications
+- `Savant.Pulse.Utility.Client.PULU01/` - Main project directory
+  - `Program.cs` - Entry point with System.CommandLine integration and DI setup
+  - `Configuration/AppConfiguration.cs` - Configuration model
+  - `Extensions/ServiceCollectionExtensions.cs` - DI container setup
+  - `Models/` - Domain models (DonationRecord, ProcessingResult, ProcessingStatus)
+  - `Services/` - Core business logic services
+    - `Interfaces/` - Service contracts
+    - `ApplicationService.cs` - Main orchestration service
+    - `CsvReaderService.cs` - CSV parsing with header detection
+    - `ProcessingWorkerService.cs` - Multi-threaded processing coordination
+    - `ProcessingPersistenceService.cs` - JSON file persistence for resume functionality
+    - `ProgressTrackingService.cs` - Real-time progress reporting with ETA
+    - `MockApiClientService.cs` - API client simulation (95% success rate, 1-2s delays)
+  - `Utilities/ConsoleHelper.cs` - Console UI helpers and formatting
+  - `plan/plan.md` - Original requirements specification
 
 ## Current Implementation Status
 
@@ -82,10 +93,38 @@ dotnet clean
 - Resume functionality by tracking processed records
 - Graceful shutdown handling with Ctrl+C support
 
-## Testing
+## Key Architecture Patterns
 
-Sample CSV files are included:
+- **Producer-Consumer**: `ProcessingWorkerService` uses a thread-safe queue with configurable worker threads
+- **Service Layer**: All business logic isolated in services with dependency injection
+- **Persistence Strategy**: JSON files for tracking processed records (`Hold_Clear_Ok.json`, `Hold_Clear_Errors.json`)
+- **Progress Reporting**: Batch-style updates (every 20 operations) with real-time ETA calculations
+- **Graceful Shutdown**: Ctrl+C handling with proper resource cleanup and summary display
+
+## Testing & Sample Data
+
+Available test files:
 - `sample_data.csv` - 10 records with header
-- `small_test.csv` - 3 records without header
+- `small_test.csv` - 3 records without header  
+- `test_data_20k.csv` - 20,000 records for performance testing
+- `realData.csv` - Production data file
 
-Test with: `dotnet run -- --threads 3 --file sample_data.csv`
+Test commands:
+```bash
+# Quick test with small dataset
+dotnet run -- --threads 3 --file sample_data.csv
+
+# Performance test with larger dataset
+dotnet run -- --threads 10 --file test_data_20k.csv
+
+# Resume functionality test (run, stop with Ctrl+C, then re-run)
+dotnet run -- --threads 5 --file sample_data.csv
+```
+
+## Dependencies
+
+Key NuGet packages:
+- `System.CommandLine` (2.0.0-beta4) - Command line parsing
+- `Microsoft.Extensions.DependencyInjection` (8.0.0) - DI container
+- `Microsoft.Extensions.Hosting` (8.0.0) - Host builder pattern
+- `Microsoft.Extensions.Logging` (8.0.0) - Structured logging

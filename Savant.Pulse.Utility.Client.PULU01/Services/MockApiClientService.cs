@@ -1,7 +1,7 @@
 using Microsoft.Extensions.Logging;
-using savant.ulse.utility.client.PULU01.Models;
+using Savant.Pulse.Utility.Client.PULU01.Models;
 
-namespace savant.ulse.utility.client.PULU01.Services;
+namespace Savant.Pulse.Utility.Client.PULU01.Services;
 
 public class MockApiClientService : IApiClientService
 {

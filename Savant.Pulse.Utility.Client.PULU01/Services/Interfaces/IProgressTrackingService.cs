@@ -1,7 +1,7 @@
-using savant.ulse.utility.client.PULU01.Models;
+using Savant.Pulse.Utility.Client.PULU01.Models;
 
 // ReSharper disable once CheckNamespace
-namespace savant.ulse.utility.client.PULU01.Services;
+namespace Savant.Pulse.Utility.Client.PULU01.Services;
 
 public interface IProgressTrackingService
 {

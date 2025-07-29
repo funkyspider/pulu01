@@ -1,8 +1,8 @@
 using Microsoft.Extensions.DependencyInjection;
-using savant.ulse.utility.client.PULU01.Configuration;
-using savant.ulse.utility.client.PULU01.Services;
+using Savant.Pulse.Utility.Client.PULU01.Configuration;
+using Savant.Pulse.Utility.Client.PULU01.Services;
 
-namespace savant.ulse.utility.client.PULU01.Extensions;
+namespace Savant.Pulse.Utility.Client.PULU01.Extensions;
 
 public static class ServiceCollectionExtensions
 {
