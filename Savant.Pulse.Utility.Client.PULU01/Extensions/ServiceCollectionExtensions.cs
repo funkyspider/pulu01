@@ -1,4 +1,5 @@
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Options;
 using Savant.Pulse.Utility.Client.PULU01.Configuration;
 using Savant.Pulse.Utility.Client.PULU01.Services;
 
@@ -10,6 +11,19 @@ public static class ServiceCollectionExtensions
     {
         // Configuration
         services.AddSingleton(configuration);
+        services.Configure<AppConfiguration>(opts =>
+        {
+            opts.ThreadCount = configuration.ThreadCount;
+            opts.FilePath = configuration.FilePath;
+            opts.SuccessLogPath = configuration.SuccessLogPath;
+            opts.ErrorLogPath = configuration.ErrorLogPath;
+            opts.ProgressUpdateBatchSize = configuration.ProgressUpdateBatchSize;
+            opts.FileWriteBatchSize = configuration.FileWriteBatchSize;
+            opts.Api = configuration.Api;
+        });
+        
+        // HTTP Client
+        services.AddHttpClient<IApiClientService, HttpApiClientService>();
         
         // Core application services
         services.AddScoped<IApplicationService, ApplicationService>();
@@ -19,9 +33,6 @@ public static class ServiceCollectionExtensions
         
         // Processing and workers
         services.AddScoped<IProcessingWorkerService, ProcessingWorkerService>();
-        
-        // API client (mock implementation - replace with real API client when ready)
-        services.AddScoped<IApiClientService, MockApiClientService>();
         
         // Processing persistence and progress tracking
         services.AddScoped<IProcessingPersistenceService, ProcessingPersistenceService>();
