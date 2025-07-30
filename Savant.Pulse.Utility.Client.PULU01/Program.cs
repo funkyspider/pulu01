@@ -2,6 +2,8 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
+using NLog;
+using NLog.Extensions.Logging;
 using System.CommandLine;
 using Savant.Pulse.Utility.Client.PULU01.Configuration;
 using Savant.Pulse.Utility.Client.PULU01.Extensions;
@@ -82,8 +84,8 @@ rootCommand.SetHandler(async (threads, file,clearCode) =>
         .ConfigureLogging(logging =>
         {
             logging.ClearProviders();
-            logging.AddConsole();
-            logging.SetMinimumLevel(LogLevel.Warning); // Only show warnings and errors
+            logging.AddNLog(); // Add NLog
+            logging.SetMinimumLevel(Microsoft.Extensions.Logging.LogLevel.Debug); // Allow debug level for detailed API logging
         })
         .Build();
 
