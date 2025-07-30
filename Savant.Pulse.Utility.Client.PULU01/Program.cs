@@ -41,7 +41,7 @@ rootCommand.SetHandler(async (threads, file) =>
 
     // Load configuration from appsettings.json
     var configBuilder = new ConfigurationBuilder()
-        .SetBasePath(Directory.GetCurrentDirectory())
+        .SetBasePath(AppContext.BaseDirectory)
         .AddJsonFile("appsettings.json", optional: false, reloadOnChange: false);
     
     var config = configBuilder.Build();
