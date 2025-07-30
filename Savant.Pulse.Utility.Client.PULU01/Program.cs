@@ -1,3 +1,4 @@
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
@@ -38,13 +39,27 @@ rootCommand.SetHandler(async (threads, file) =>
         Environment.Exit(1);
     }
 
-    var configuration = new AppConfiguration
-    {
-        ThreadCount = threads,
-        FilePath = file
-    };
+    // Load configuration from appsettings.json
+    var configBuilder = new ConfigurationBuilder()
+        .SetBasePath(Directory.GetCurrentDirectory())
+        .AddJsonFile("appsettings.json", optional: false, reloadOnChange: false);
+    
+    var config = configBuilder.Build();
+    
+    // Create AppConfiguration with values from JSON and command line overrides
+    var configuration = new AppConfiguration();
+    config.Bind(configuration);
+    
+    // Override with command line parameters
+    configuration.ThreadCount = threads;
+    configuration.FilePath = file;
 
     var host = Host.CreateDefaultBuilder()
+        .ConfigureAppConfiguration(builder => 
+        {
+            builder.Sources.Clear();
+            builder.AddConfiguration(config);
+        })
         .ConfigureServices((context, services) =>
         {
             services.AddPulu01Services(configuration);
