@@ -2,8 +2,8 @@ namespace Savant.Pulse.Utility.Client.PULU01.Models;
 
 public class ClearHoldRequestDto
 {
-    private string _productCode;
-    private string _unitNumber;
+    private string _productCode = string.Empty;
+    private string _unitNumber = string.Empty;
     public string ProductCode
     {
         get => _productCode;
@@ -16,11 +16,11 @@ public class ClearHoldRequestDto
         set => _unitNumber = value.ToUpper().Trim();
     }
 
-    public string HoldCode { get; set; }
-    public string ClearCode { get; set; }
-    public string ProgramId { get; set; }
+    public string HoldCode { get; set; } = string.Empty;
+    public string ClearCode { get; set; } = string.Empty;
+    public string ProgramId { get; set; } = string.Empty;
     public DateTime DateTimePlaced { get; set; }
-    public string IncidentNumber { get; set; }
+    public string IncidentNumber { get; set; } = string.Empty;
     public bool ClearConstituents { get; set; }
     public HoldType ClearType { get; set; }
 
@@ -37,7 +37,7 @@ public class ClearHoldRequestDto
             UnitNumber = record.DonationNumber,
             ProductCode = record.ProductCode,
             HoldCode = record.HoldCode,
-            DateTimePlaced = record.HoldDateTime.Value,
+            DateTimePlaced = record.HoldDateTime ?? DateTime.MinValue,
             IncidentNumber = string.Empty,
             ClearType = HoldType.Direct,
             ClearConstituents = true,
