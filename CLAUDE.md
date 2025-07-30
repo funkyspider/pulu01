@@ -109,6 +109,9 @@ Available test files:
 
 Test commands:
 ```bash
+# Show help information
+dotnet run -- --help
+
 # Quick test with small dataset
 dotnet run -- --threads 3 --file HolsToClear_3.csv
 
