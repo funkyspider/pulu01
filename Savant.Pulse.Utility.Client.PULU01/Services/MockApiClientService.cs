@@ -13,7 +13,7 @@ public class MockApiClientService : IApiClientService
         _logger = logger;
     }
 
-    public async Task<ProcessingResult> ClearHoldAsync(DonationRecord record, CancellationToken cancellationToken = default)
+    public async Task<ProcessingResult> ClearHoldAsync(DonationRecord record, string clearCode, CancellationToken cancellationToken = default)
     {
         try
         {

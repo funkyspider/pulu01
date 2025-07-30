@@ -158,7 +158,7 @@ public class ProcessingWorkerService : IProcessingWorkerService
                 
                 try
                 {
-                    var result = await _apiClientService.ClearHoldAsync(record, cancellationToken);
+                    var result = await _apiClientService.ClearHoldAsync(record, _configuration.ClearCode, cancellationToken);
                     
                     if (result.IsSuccess)
                     {

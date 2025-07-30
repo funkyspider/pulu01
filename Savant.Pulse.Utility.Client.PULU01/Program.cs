@@ -19,13 +19,21 @@ var fileOption = new Option<string>(
     IsRequired = true
 };
 
+var clearCodeOption = new Option<string>(
+    "--clearcode",
+    description: "Pulse clear code")
+{
+    IsRequired = true
+};
+
 var rootCommand = new RootCommand(GetHelpDescription())
 {
     threadsOption,
-    fileOption
+    fileOption,
+    clearCodeOption
 };
 
-rootCommand.SetHandler(async (threads, file) =>
+rootCommand.SetHandler(async (threads, file,clearCode) =>
 {
     if (!File.Exists(file))
     {
@@ -36,6 +44,12 @@ rootCommand.SetHandler(async (threads, file) =>
     if (threads < 1 || threads > 50)
     {
         Console.WriteLine("Error: Thread count must be between 1 and 50.");
+        Environment.Exit(1);
+    }
+
+    if (string.IsNullOrEmpty(clearCode) || clearCode.Length < 2 || clearCode.Length > 3)
+    {
+        Console.WriteLine("Error: Clear code is required and must be between 2 and 3 characters.");
         Environment.Exit(1);
     }
 
@@ -51,8 +65,9 @@ rootCommand.SetHandler(async (threads, file) =>
     config.Bind(configuration);
     
     // Override with command line parameters
-    configuration.ThreadCount = threads;
+    configuration.ThreadCount = threads != configuration.ThreadCount ? threads : configuration.ThreadCount;
     configuration.FilePath = file;
+    configuration.ClearCode = clearCode;
 
     var host = Host.CreateDefaultBuilder()
         .ConfigureAppConfiguration(builder => 
@@ -95,7 +110,7 @@ rootCommand.SetHandler(async (threads, file) =>
         Environment.Exit(1);
     }
     
-}, threadsOption, fileOption);
+}, threadsOption, fileOption, clearCodeOption);
 
 return await rootCommand.InvokeAsync(args);
 
@@ -118,6 +133,10 @@ CSV FILE FORMAT:
     - RSHLD  : Hold Code (must be more than 1 character, e.g., COS, RD)
     
     Additional columns in the CSV file will be ignored.
+
+CLEAR CODE:
+    Use --clearcode to define the Pulse hold clear code.
+    This is not validated against the database.  Please ensure the code us correct
 
 THREADING:
     Use --threads to specify concurrent processing threads (1-50).
