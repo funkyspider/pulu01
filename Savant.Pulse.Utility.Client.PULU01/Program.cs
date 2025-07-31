@@ -56,15 +56,30 @@ rootCommand.SetHandler(async (threads, file,clearCode) =>
     }
 
     // Load configuration from appsettings.json
+    var basePath = AppContext.BaseDirectory;
+    var configPath = Path.Combine(basePath, "appsettings.json");
+    
+    Console.WriteLine($"Debug: Base path: {basePath}");
+    Console.WriteLine($"Debug: Config path: {configPath}");
+    Console.WriteLine($"Debug: File exists: {File.Exists(configPath)}");
+    
     var configBuilder = new ConfigurationBuilder()
-        .SetBasePath(AppContext.BaseDirectory)
+        .SetBasePath(basePath)
         .AddJsonFile("appsettings.json", optional: false, reloadOnChange: false);
     
     var config = configBuilder.Build();
     
+    // Debug: Check if configuration values are loaded
+    Console.WriteLine($"Debug: BaseUrl from config: '{config["Api:BaseUrl"]}'");
+    Console.WriteLine($"Debug: XUserId from config: '{config["Api:Headers:XUserId"]}'");
+    
     // Create AppConfiguration with values from JSON and command line overrides
     var configuration = new AppConfiguration();
     config.Bind(configuration);
+    
+    // Debug: Check if binding worked
+    Console.WriteLine($"Debug: BaseUrl after binding: '{configuration.Api.BaseUrl}'");
+    Console.WriteLine($"Debug: XUserId after binding: '{configuration.Api.Headers.XUserId}'");
     
     // Override with command line parameters
     configuration.ThreadCount = threads != configuration.ThreadCount ? threads : configuration.ThreadCount;
