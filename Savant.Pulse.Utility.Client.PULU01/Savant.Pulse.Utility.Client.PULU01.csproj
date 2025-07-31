@@ -9,6 +9,8 @@
         <PublishSingleFile>true</PublishSingleFile>
         <SelfContained>true</SelfContained>
         <PublishTrimmed>false</PublishTrimmed>
+        <JsonSerializerIsReflectionEnabledByDefault>true</JsonSerializerIsReflectionEnabledByDefault>
+        <EnableConfigurationBinding>true</EnableConfigurationBinding>
     </PropertyGroup>
 
     <ItemGroup>
@@ -28,9 +30,11 @@
       <None Remove="appsettings.json" />
       <Content Include="appsettings.json">
         <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+        <ExcludeFromSingleFile>true</ExcludeFromSingleFile>
       </Content>
       <Content Include="NLog.config">
         <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+        <ExcludeFromSingleFile>true</ExcludeFromSingleFile>
       </Content>
     </ItemGroup>
 

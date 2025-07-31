@@ -16,7 +16,8 @@ public class HttpApiClientService : IApiClientService
     private static readonly JsonSerializerOptions JsonOptions = new()
     {
         PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
-        WriteIndented = false
+        WriteIndented = false,
+        TypeInfoResolver = AppJsonContext.Default
     };
 
     public HttpApiClientService(

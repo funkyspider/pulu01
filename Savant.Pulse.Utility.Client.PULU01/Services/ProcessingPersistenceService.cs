@@ -32,7 +32,7 @@ public class ProcessingPersistenceService : IProcessingPersistenceService
                 var json = await File.ReadAllTextAsync(_configuration.SuccessLogPath, cancellationToken);
                 if (!string.IsNullOrWhiteSpace(json))
                 {
-                    var records = JsonSerializer.Deserialize<List<ProcessedRecord>>(json) ?? new List<ProcessedRecord>();
+                    var records = JsonSerializer.Deserialize<List<ProcessedRecord>>(json, new JsonSerializerOptions { TypeInfoResolver = AppJsonContext.Default }) ?? new List<ProcessedRecord>();
                     
                     foreach (var record in records)
                     {
@@ -110,7 +110,7 @@ public class ProcessingPersistenceService : IProcessingPersistenceService
                 var existingJson = await File.ReadAllTextAsync(_configuration.SuccessLogPath, cancellationToken);
                 if (!string.IsNullOrWhiteSpace(existingJson))
                 {
-                    existingRecords = JsonSerializer.Deserialize<List<ProcessedRecord>>(existingJson) ?? new List<ProcessedRecord>();
+                    existingRecords = JsonSerializer.Deserialize<List<ProcessedRecord>>(existingJson, new JsonSerializerOptions { TypeInfoResolver = AppJsonContext.Default }) ?? new List<ProcessedRecord>();
                 }
             }
 
@@ -125,7 +125,7 @@ public class ProcessingPersistenceService : IProcessingPersistenceService
 
             existingRecords.AddRange(newRecords);
 
-            var json = JsonSerializer.Serialize(existingRecords, new JsonSerializerOptions { WriteIndented = true });
+            var json = JsonSerializer.Serialize(existingRecords, new JsonSerializerOptions { WriteIndented = true, TypeInfoResolver = AppJsonContext.Default });
             await File.WriteAllTextAsync(_configuration.SuccessLogPath, json, cancellationToken);
 
             _logger.LogDebug("Saved {Count} successful records to {FilePath}", recordsToWrite.Count, _configuration.SuccessLogPath);
@@ -152,7 +152,7 @@ public class ProcessingPersistenceService : IProcessingPersistenceService
             };
 
             // Append single record as JSON line to avoid reading entire file
-            var json = JsonSerializer.Serialize(failedRecord, new JsonSerializerOptions { WriteIndented = false });
+            var json = JsonSerializer.Serialize(failedRecord, new JsonSerializerOptions { WriteIndented = false, TypeInfoResolver = AppJsonContext.Default });
             await File.AppendAllTextAsync(_configuration.ErrorLogPath, json + Environment.NewLine, cancellationToken);
 
             _logger.LogDebug("Saved failed record to {FilePath}: {Key}", _configuration.ErrorLogPath, failedRecord.Key);
