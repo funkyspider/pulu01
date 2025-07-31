@@ -12,12 +12,16 @@ public class HttpApiClientService : IApiClientService
     private readonly HttpClient _httpClient;
     private readonly AppConfiguration _configuration;
     private readonly ILogger<HttpApiClientService> _logger;
-    private static readonly JsonSerializerOptions JsonOptions = new()
+    // Shared JSON options for consistent serialization across the application
+    public static readonly JsonSerializerOptions SharedJsonOptions = new()
     {
         PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
         WriteIndented = false,
-        TypeInfoResolver = AppJsonContext.Default
+        TypeInfoResolver = AppJsonContext.Default,
+        PropertyNameCaseInsensitive = true
     };
+    
+    private static readonly JsonSerializerOptions JsonOptions = SharedJsonOptions;
 
     public HttpApiClientService(
         HttpClient httpClient,
