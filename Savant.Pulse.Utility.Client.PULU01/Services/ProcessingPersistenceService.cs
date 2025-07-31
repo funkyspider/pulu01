@@ -170,7 +170,7 @@ public class ProcessingPersistenceService : IProcessingPersistenceService
         await Task.CompletedTask;
     }
 
-    private class ProcessedRecord
+    public class ProcessedRecord
     {
         public string Key { get; set; } = string.Empty;
         public string DonationNumber { get; set; } = string.Empty;
@@ -179,7 +179,7 @@ public class ProcessingPersistenceService : IProcessingPersistenceService
         public DateTime ProcessedAt { get; set; }
     }
 
-    private class FailedRecord
+    public class FailedRecord
     {
         public string Key { get; set; } = string.Empty;
         public string DonationNumber { get; set; } = string.Empty;

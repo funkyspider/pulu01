@@ -1,7 +1,6 @@
 using System.Text;
 using System.Text.Json;
 using Microsoft.Extensions.Logging;
-using Microsoft.Extensions.Options;
 using Savant.Pulse.Utility.Client.PULU01.Configuration;
 using Savant.Pulse.Utility.Client.PULU01.enums;
 using Savant.Pulse.Utility.Client.PULU01.Models;
@@ -22,11 +21,11 @@ public class HttpApiClientService : IApiClientService
 
     public HttpApiClientService(
         HttpClient httpClient,
-        IOptions<AppConfiguration> configuration,
+        AppConfiguration configuration,
         ILogger<HttpApiClientService> logger)
     {
         _httpClient = httpClient;
-        _configuration = configuration.Value;
+        _configuration = configuration;
         _logger = logger;
         
         ConfigureHttpClient();
