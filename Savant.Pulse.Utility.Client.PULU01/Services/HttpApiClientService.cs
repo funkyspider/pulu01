@@ -57,6 +57,7 @@ public class HttpApiClientService : IApiClientService
 
 public async Task<ProcessingResult> ClearHoldAsync(DonationRecord record, string clearCode, CancellationToken cancellationToken = default)
 {
+    string responseContent = string.Empty;
     try
     {
         _logger.LogDebug("Clearing hold for record: {RecordKey}", record.GetKey());
@@ -80,7 +81,7 @@ public async Task<ProcessingResult> ClearHoldAsync(DonationRecord record, string
         _logger.LogDebug("API Response Headers: {Headers}", 
             string.Join(", ", response.Headers.Select(h => $"{h.Key}: {string.Join(", ", h.Value)}")));
 
-        var responseContent = await response.Content.ReadAsStringAsync(cancellationToken);
+        responseContent = await response.Content.ReadAsStringAsync(cancellationToken);
         _logger.LogDebug("API Response Body: {ResponseBody}", responseContent);
 
         if (response.IsSuccessStatusCode)
@@ -152,6 +153,8 @@ public async Task<ProcessingResult> ClearHoldAsync(DonationRecord record, string
         var errorMessage = $"JSON serialization/deserialization error: {ex.Message}";
         _logger.LogWarning("JSON error - Unit: {UnitNumber}, Product: {ProductCode}, Hold: {HoldCode}, Error: {ErrorMessage}", 
             record.DonationNumber, record.ProductCode, record.HoldCode, ex.Message);
+        _logger.LogError("JSON deserialization failed for record {RecordKey}. Response content: {ResponseContent}", 
+            record.GetKey(), responseContent);
         _logger.LogError(ex, "JSON error clearing hold for record {RecordKey}", record.GetKey());
         return new ProcessingResult(record, ProcessingStatus.Failed, errorMessage);
     }
