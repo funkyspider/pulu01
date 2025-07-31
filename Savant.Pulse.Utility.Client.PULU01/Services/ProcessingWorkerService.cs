@@ -92,17 +92,30 @@ public class ProcessingWorkerService : IProcessingWorkerService
             workers.Add(worker);
         }
 
-        // Start batch saving task
+        // Start batch saving task with a completion source
+        using var batchSaverCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
         var batchSaver = Task.Run(async () =>
         {
-            await BatchSaveResults(successfulRecords, failedResults, cancellationToken);
-        }, cancellationToken);
+            await BatchSaveResults(successfulRecords, failedResults, batchSaverCts.Token);
+        }, batchSaverCts.Token);
 
         // Wait for all workers to complete
         try
         {
             await Task.WhenAll(workers);
-            await batchSaver;
+            
+            // Cancel the batch saver since workers are done
+            batchSaverCts.Cancel();
+            
+            // Wait for batch saver to complete cancellation
+            try
+            {
+                await batchSaver;
+            }
+            catch (OperationCanceledException)
+            {
+                // Expected when we cancel the batch saver
+            }
         }
         catch (OperationCanceledException)
         {
