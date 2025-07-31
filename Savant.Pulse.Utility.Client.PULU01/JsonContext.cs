@@ -14,6 +14,7 @@ namespace Savant.Pulse.Utility.Client.PULU01;
 [JsonSerializable(typeof(ProcessingPersistenceService.ProcessedRecord))]
 [JsonSerializable(typeof(ProcessingPersistenceService.FailedRecord))]
 [JsonSerializable(typeof(ClearHoldStatus))]
+[JsonSerializable(typeof(ErrorNum))]
 public partial class AppJsonContext : JsonSerializerContext
 {
 }

@@ -1,4 +1,6 @@
-﻿namespace Savant.Pulse.Utility.Client.PULU01.enums
+using System.Text.Json.Serialization;
+
+namespace Savant.Pulse.Utility.Client.PULU01.enums
 {
     [AttributeUsage(AttributeTargets.Field)]
     public class ErrorAreaAttribute : Attribute
@@ -39,6 +41,7 @@
     /// <summary>
     /// Error Number Enumeration
     /// </summary>
+    [JsonConverter(typeof(JsonStringEnumConverter<ErrorNum>))]
     public enum ErrorNum
     {
         /// <summary>
