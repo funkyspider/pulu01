@@ -57,50 +57,28 @@ rootCommand.SetHandler(async (threads, file,clearCode) =>
 
     // Load configuration from appsettings.json
     var basePath = AppContext.BaseDirectory;
-    var configPath = Path.Combine(basePath, "appsettings.json");
-    
-    Console.WriteLine($"Debug: Base path: {basePath}");
-    Console.WriteLine($"Debug: Config path: {configPath}");
-    Console.WriteLine($"Debug: File exists: {File.Exists(configPath)}");
-    
     var configBuilder = new ConfigurationBuilder()
         .SetBasePath(basePath)
         .AddJsonFile("appsettings.json", optional: false, reloadOnChange: false);
     
     var config = configBuilder.Build();
     
-    // Debug: Check if configuration values are loaded
-    Console.WriteLine($"Debug: BaseUrl from config: '{config["Api:BaseUrl"]}'");
-    Console.WriteLine($"Debug: XUserId from config: '{config["Api:Headers:XUserId"]}'");
-    
     // Create AppConfiguration with values from JSON and command line overrides
     var configuration = new AppConfiguration();
     
-    // Try explicit binding instead of extension method
-    try 
-    {
-        configuration.SuccessLogPath = config.GetValue<string>("SuccessLogPath") ?? "Hold_Clear_Ok.json";
-        configuration.ErrorLogPath = config.GetValue<string>("ErrorLogPath") ?? "Hold_Clear_Errors.json";
-        configuration.ProgressUpdateBatchSize = config.GetValue<int>("ProgressUpdateBatchSize", 20);
-        configuration.FileWriteBatchSize = config.GetValue<int>("FileWriteBatchSize", 100);
-        
-        configuration.Api.BaseUrl = config.GetValue<string>("Api:BaseUrl") ?? string.Empty;
-        configuration.Api.ClearHoldEndpoint = config.GetValue<string>("Api:ClearHoldEndpoint") ?? string.Empty;
-        configuration.Api.TimeoutSeconds = config.GetValue<int>("Api:TimeoutSeconds", 30);
-        
-        configuration.Api.Headers.XUserId = config.GetValue<string>("Api:Headers:XUserId") ?? string.Empty;
-        configuration.Api.Headers.XAppName = config.GetValue<string>("Api:Headers:XAppName") ?? string.Empty;
-        configuration.Api.Headers.XEnvironment = config.GetValue<string>("Api:Headers:XEnvironment") ?? string.Empty;
-        
-        Console.WriteLine($"Debug: Manual binding - BaseUrl: '{configuration.Api.BaseUrl}'");
-        Console.WriteLine($"Debug: Manual binding - XUserId: '{configuration.Api.Headers.XUserId}'");
-    }
-    catch (Exception ex)
-    {
-        Console.WriteLine($"Debug: Configuration binding failed: {ex.Message}");
-        // Fallback to config.Bind
-        config.Bind(configuration);
-    }
+    // Use explicit binding for better self-contained deployment compatibility
+    configuration.SuccessLogPath = config.GetValue<string>("SuccessLogPath") ?? "Hold_Clear_Ok.json";
+    configuration.ErrorLogPath = config.GetValue<string>("ErrorLogPath") ?? "Hold_Clear_Errors.json";
+    configuration.ProgressUpdateBatchSize = config.GetValue<int>("ProgressUpdateBatchSize", 20);
+    configuration.FileWriteBatchSize = config.GetValue<int>("FileWriteBatchSize", 100);
+    
+    configuration.Api.BaseUrl = config.GetValue<string>("Api:BaseUrl") ?? string.Empty;
+    configuration.Api.ClearHoldEndpoint = config.GetValue<string>("Api:ClearHoldEndpoint") ?? string.Empty;
+    configuration.Api.TimeoutSeconds = config.GetValue<int>("Api:TimeoutSeconds", 30);
+    
+    configuration.Api.Headers.XUserId = config.GetValue<string>("Api:Headers:XUserId") ?? string.Empty;
+    configuration.Api.Headers.XAppName = config.GetValue<string>("Api:Headers:XAppName") ?? string.Empty;
+    configuration.Api.Headers.XEnvironment = config.GetValue<string>("Api:Headers:XEnvironment") ?? string.Empty;
     
     // Override with command line parameters
     configuration.ThreadCount = threads != configuration.ThreadCount ? threads : configuration.ThreadCount;
