@@ -75,11 +75,32 @@ rootCommand.SetHandler(async (threads, file,clearCode) =>
     
     // Create AppConfiguration with values from JSON and command line overrides
     var configuration = new AppConfiguration();
-    config.Bind(configuration);
     
-    // Debug: Check if binding worked
-    Console.WriteLine($"Debug: BaseUrl after binding: '{configuration.Api.BaseUrl}'");
-    Console.WriteLine($"Debug: XUserId after binding: '{configuration.Api.Headers.XUserId}'");
+    // Try explicit binding instead of extension method
+    try 
+    {
+        configuration.SuccessLogPath = config.GetValue<string>("SuccessLogPath") ?? "Hold_Clear_Ok.json";
+        configuration.ErrorLogPath = config.GetValue<string>("ErrorLogPath") ?? "Hold_Clear_Errors.json";
+        configuration.ProgressUpdateBatchSize = config.GetValue<int>("ProgressUpdateBatchSize", 20);
+        configuration.FileWriteBatchSize = config.GetValue<int>("FileWriteBatchSize", 100);
+        
+        configuration.Api.BaseUrl = config.GetValue<string>("Api:BaseUrl") ?? string.Empty;
+        configuration.Api.ClearHoldEndpoint = config.GetValue<string>("Api:ClearHoldEndpoint") ?? string.Empty;
+        configuration.Api.TimeoutSeconds = config.GetValue<int>("Api:TimeoutSeconds", 30);
+        
+        configuration.Api.Headers.XUserId = config.GetValue<string>("Api:Headers:XUserId") ?? string.Empty;
+        configuration.Api.Headers.XAppName = config.GetValue<string>("Api:Headers:XAppName") ?? string.Empty;
+        configuration.Api.Headers.XEnvironment = config.GetValue<string>("Api:Headers:XEnvironment") ?? string.Empty;
+        
+        Console.WriteLine($"Debug: Manual binding - BaseUrl: '{configuration.Api.BaseUrl}'");
+        Console.WriteLine($"Debug: Manual binding - XUserId: '{configuration.Api.Headers.XUserId}'");
+    }
+    catch (Exception ex)
+    {
+        Console.WriteLine($"Debug: Configuration binding failed: {ex.Message}");
+        // Fallback to config.Bind
+        config.Bind(configuration);
+    }
     
     // Override with command line parameters
     configuration.ThreadCount = threads != configuration.ThreadCount ? threads : configuration.ThreadCount;
