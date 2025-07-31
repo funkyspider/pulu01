@@ -97,7 +97,7 @@ public async Task<ProcessingResult> ClearHoldAsync(DonationRecord record, string
                 _logger.LogInformation("Hold cleared successfully - Unit: {UnitNumber}, Product: {ProductCode}, Hold: {HoldCode}", 
                     record.DonationNumber, record.ProductCode, record.HoldCode);
                 _logger.LogDebug("Successfully cleared hold for record: {RecordKey}", record.GetKey());
-                return new ProcessingResult(record, ProcessingStatus.Success, string.Empty);
+                return ProcessingResult.CreateSuccess(record);
             }
             else
             {
@@ -105,7 +105,7 @@ public async Task<ProcessingResult> ClearHoldAsync(DonationRecord record, string
                 _logger.LogWarning("Hold clear failed - Unit: {UnitNumber}, Product: {ProductCode}, Hold: {HoldCode}, Error: {ErrorMessage}", 
                     record.DonationNumber, record.ProductCode, record.HoldCode, errorMessage);
                 _logger.LogWarning("API returned failure for record {RecordKey}: {ErrorMessage}", record.GetKey(), errorMessage);
-                return new ProcessingResult(record, ProcessingStatus.Failed, errorMessage);
+                return ProcessingResult.CreateFailure(record, errorMessage);
             }
         }
         else
@@ -125,7 +125,7 @@ public async Task<ProcessingResult> ClearHoldAsync(DonationRecord record, string
 
             var errorMessage = $"HTTP {(int)response.StatusCode} {response.ReasonPhrase}: {responseContent}";
             _logger.LogError("HTTP error clearing hold for record {RecordKey}: {ErrorMessage}", record.GetKey(), errorMessage);
-            return new ProcessingResult(record, ProcessingStatus.Failed, errorMessage);
+            return ProcessingResult.CreateFailure(record, errorMessage);
         }
     }
     catch (HttpRequestException ex)
@@ -134,7 +134,7 @@ public async Task<ProcessingResult> ClearHoldAsync(DonationRecord record, string
         _logger.LogWarning("Request failed - Unit: {UnitNumber}, Product: {ProductCode}, Hold: {HoldCode}, Error: {ErrorMessage}", 
             record.DonationNumber, record.ProductCode, record.HoldCode, ex.Message);
         _logger.LogError(ex, "HTTP request exception clearing hold for record {RecordKey}", record.GetKey());
-        return new ProcessingResult(record, ProcessingStatus.Failed, errorMessage);
+        return ProcessingResult.CreateFailure(record, errorMessage);
     }
     catch (TaskCanceledException ex) when (ex.InnerException is TimeoutException)
     {
@@ -142,7 +142,7 @@ public async Task<ProcessingResult> ClearHoldAsync(DonationRecord record, string
         _logger.LogWarning("Request timeout - Unit: {UnitNumber}, Product: {ProductCode}, Hold: {HoldCode}", 
             record.DonationNumber, record.ProductCode, record.HoldCode);
         _logger.LogError(ex, "Timeout clearing hold for record {RecordKey}", record.GetKey());
-        return new ProcessingResult(record, ProcessingStatus.Failed, errorMessage);
+        return ProcessingResult.CreateFailure(record, errorMessage);
     }
     catch (TaskCanceledException ex)
     {
@@ -150,7 +150,7 @@ public async Task<ProcessingResult> ClearHoldAsync(DonationRecord record, string
         _logger.LogWarning("Request cancelled - Unit: {UnitNumber}, Product: {ProductCode}, Hold: {HoldCode}", 
             record.DonationNumber, record.ProductCode, record.HoldCode);
         _logger.LogWarning(ex, "Request cancelled for record {RecordKey}", record.GetKey());
-        return new ProcessingResult(record, ProcessingStatus.Failed, errorMessage);
+        return ProcessingResult.CreateFailure(record, errorMessage);
     }
     catch (JsonException ex)
     {
@@ -160,7 +160,7 @@ public async Task<ProcessingResult> ClearHoldAsync(DonationRecord record, string
         _logger.LogError("JSON deserialization failed for record {RecordKey}. Response content: {ResponseContent}", 
             record.GetKey(), responseContent);
         _logger.LogError(ex, "JSON error clearing hold for record {RecordKey}", record.GetKey());
-        return new ProcessingResult(record, ProcessingStatus.Failed, errorMessage);
+        return ProcessingResult.CreateFailure(record, errorMessage);
     }
     catch (Exception ex)
     {
@@ -168,7 +168,7 @@ public async Task<ProcessingResult> ClearHoldAsync(DonationRecord record, string
         _logger.LogWarning("Unexpected error - Unit: {UnitNumber}, Product: {ProductCode}, Hold: {HoldCode}, Error: {ErrorMessage}", 
             record.DonationNumber, record.ProductCode, record.HoldCode, ex.Message);
         _logger.LogError(ex, "Unexpected error clearing hold for record {RecordKey}", record.GetKey());
-        return new ProcessingResult(record, ProcessingStatus.Failed, errorMessage);
+        return ProcessingResult.CreateFailure(record, errorMessage);
     }
 }
 }

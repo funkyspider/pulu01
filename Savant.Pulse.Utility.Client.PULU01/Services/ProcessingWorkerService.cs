@@ -126,15 +126,10 @@ public class ProcessingWorkerService : IProcessingWorkerService
             // Final flush of any remaining results (use CancellationToken.None to ensure cleanup completes)
             try
             {
-                // Save any remaining records to the batches first
+                // Save any remaining successful records (failed records are already saved immediately)
                 if (successfulRecords.Count > 0)
                 {
                     await _processingPersistenceService.SaveSuccessfulRecordsAsync(successfulRecords.ToList(), CancellationToken.None);
-                }
-                
-                if (failedResults.Count > 0)
-                {
-                    await _processingPersistenceService.SaveFailedRecordsAsync(failedResults.ToList(), CancellationToken.None);
                 }
                 
                 // Force flush all remaining batched records to disk
