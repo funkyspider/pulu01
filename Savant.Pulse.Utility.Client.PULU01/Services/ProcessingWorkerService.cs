@@ -215,7 +215,6 @@ public class ProcessingWorkerService : IProcessingWorkerService
         CancellationToken cancellationToken)
     {
         var lastSuccessCount = 0;
-        var lastFailedCount = 0;
 
         while (!cancellationToken.IsCancellationRequested)
         {
@@ -224,7 +223,6 @@ public class ProcessingWorkerService : IProcessingWorkerService
                 await Task.Delay(5000, cancellationToken); // Check every 5 seconds
 
                 var currentSuccessCount = successfulRecords.Count;
-                var currentFailedCount = failedResults.Count;
 
                 // Save successful records if batch size reached
                 if (currentSuccessCount - lastSuccessCount >= _configuration.FileWriteBatchSize)
@@ -245,24 +243,7 @@ public class ProcessingWorkerService : IProcessingWorkerService
                     }
                 }
 
-                // Save failed records if batch size reached
-                if (currentFailedCount - lastFailedCount >= _configuration.FileWriteBatchSize)
-                {
-                    var resultsToSave = new List<ProcessingResult>();
-                    for (int i = 0; i < currentFailedCount - lastFailedCount; i++)
-                    {
-                        if (failedResults.TryTake(out var result))
-                        {
-                            resultsToSave.Add(result);
-                        }
-                    }
-                    
-                    if (resultsToSave.Count > 0)
-                    {
-                        await _processingPersistenceService.SaveFailedRecordsAsync(resultsToSave, cancellationToken);
-                        lastFailedCount = currentFailedCount;
-                    }
-                }
+                // Failed records are saved immediately, so no batching needed for failures
             }
             catch (OperationCanceledException)
             {
