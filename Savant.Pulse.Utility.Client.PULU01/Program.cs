@@ -8,6 +8,7 @@ using System.CommandLine;
 using Savant.Pulse.Utility.Client.PULU01.Configuration;
 using Savant.Pulse.Utility.Client.PULU01.Extensions;
 using Savant.Pulse.Utility.Client.PULU01.Services;
+using Savant.Pulse.Utility.Client.PULU01.Models;
 
 var threadsOption = new Option<int>(
     "--threads",
@@ -23,19 +24,31 @@ var fileOption = new Option<string>(
 
 var clearCodeOption = new Option<string>(
     "--clearcode",
-    description: "Pulse clear code")
+    description: "Pulse clear code (required for hold mode, optional for discard mode)");
+
+var modeOption = new Option<string>(
+    "--mode",
+    getDefaultValue: () => "hold",
+    description: "Processing mode: 'hold' for donation hold clearing (default) or 'discard' for discard fate clearing");
+
+modeOption.AddValidator(result =>
 {
-    IsRequired = true
-};
+    var value = result.GetValueOrDefault<string>()?.ToLowerInvariant();
+    if (value != "hold" && value != "discard")
+    {
+        result.ErrorMessage = "Mode must be either 'hold' or 'discard'";
+    }
+});
 
 var rootCommand = new RootCommand(GetHelpDescription())
 {
     threadsOption,
     fileOption,
-    clearCodeOption
+    clearCodeOption,
+    modeOption
 };
 
-rootCommand.SetHandler(async (threads, file,clearCode) =>
+rootCommand.SetHandler(async (threads, file, clearCode, mode) =>
 {
     if (!File.Exists(file))
     {
@@ -49,10 +62,24 @@ rootCommand.SetHandler(async (threads, file,clearCode) =>
         Environment.Exit(1);
     }
 
-    if (string.IsNullOrEmpty(clearCode) || clearCode.Length < 2 || clearCode.Length > 3)
+    // Validate clearcode based on mode
+    var normalizedMode = mode.ToLowerInvariant();
+    if (normalizedMode == "hold")
     {
-        Console.WriteLine("Error: Clear code is required and must be between 2 and 3 characters.");
-        Environment.Exit(1);
+        if (string.IsNullOrEmpty(clearCode) || clearCode.Length < 2 || clearCode.Length > 3)
+        {
+            Console.WriteLine("Error: Clear code is required for hold mode and must be between 2 and 3 characters.");
+            Environment.Exit(1);
+        }
+    }
+    else if (normalizedMode == "discard")
+    {
+        // For discard mode, clearcode is optional
+        if (!string.IsNullOrEmpty(clearCode) && (clearCode.Length < 2 || clearCode.Length > 3))
+        {
+            Console.WriteLine("Error: If provided, clear code must be between 2 and 3 characters.");
+            Environment.Exit(1);
+        }
     }
 
     // Load configuration from appsettings.json
@@ -74,16 +101,26 @@ rootCommand.SetHandler(async (threads, file,clearCode) =>
     
     configuration.Api.BaseUrl = config.GetValue<string>("Api:BaseUrl") ?? string.Empty;
     configuration.Api.ClearHoldEndpoint = config.GetValue<string>("Api:ClearHoldEndpoint") ?? string.Empty;
+    configuration.Api.ClearDiscardEndpoint = config.GetValue<string>("Api:ClearDiscardEndpoint") ?? "/api/v43/ComponentHold/clear-discard-fate";
     configuration.Api.TimeoutSeconds = config.GetValue<int>("Api:TimeoutSeconds", 30);
     
     configuration.Api.Headers.XUserId = config.GetValue<string>("Api:Headers:XUserId") ?? string.Empty;
     configuration.Api.Headers.XAppName = config.GetValue<string>("Api:Headers:XAppName") ?? string.Empty;
     configuration.Api.Headers.XEnvironment = config.GetValue<string>("Api:Headers:XEnvironment") ?? string.Empty;
     
+    // Parse and set processing mode
+    var processingMode = mode.ToLowerInvariant() switch
+    {
+        "hold" => ProcessingMode.Hold,
+        "discard" => ProcessingMode.Discard,
+        _ => ProcessingMode.Hold // Default to hold
+    };
+
     // Override with command line parameters
     configuration.ThreadCount = threads != configuration.ThreadCount ? threads : configuration.ThreadCount;
     configuration.FilePath = file;
-    configuration.ClearCode = clearCode;
+    configuration.ClearCode = clearCode ?? string.Empty; // Handle null clearCode for discard mode
+    configuration.Mode = processingMode;
 
     var host = Host.CreateDefaultBuilder()
         .ConfigureAppConfiguration(builder => 
@@ -126,7 +163,7 @@ rootCommand.SetHandler(async (threads, file,clearCode) =>
         Environment.Exit(1);
     }
     
-}, threadsOption, fileOption, clearCodeOption);
+}, threadsOption, fileOption, clearCodeOption, modeOption);
 
 return await rootCommand.InvokeAsync(args);
 

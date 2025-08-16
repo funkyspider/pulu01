@@ -11,7 +11,7 @@ public record DonationRecord(
     public bool IsValid()
     {
         return !string.IsNullOrWhiteSpace(DonationNumber) &&
-               !string.IsNullOrWhiteSpace(ProductCode) && (ProductCode.Length == 4 || ProductCode.ToUpper() == 'ALL') &&
+               !string.IsNullOrWhiteSpace(ProductCode) && (ProductCode.Length == 4 || ProductCode.ToUpper() == "ALL") &&
                !string.IsNullOrWhiteSpace(HoldCode) && HoldCode.Length > 1;
     }
 
