@@ -4,7 +4,7 @@ public record DonationRecord(
     string DonationNumber,
     string ProductCode,
     string HoldCode,
-    DateTime? HoldDateTime = null)
+    DateTime? HoldDateTime = null) : IProcessingRecord
 {
     public string GetKey() => $"{DonationNumber}|{ProductCode}|{HoldCode}";
     

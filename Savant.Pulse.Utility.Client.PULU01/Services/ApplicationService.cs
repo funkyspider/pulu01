@@ -1,5 +1,6 @@
 using Microsoft.Extensions.Logging;
 using Savant.Pulse.Utility.Client.PULU01.Configuration;
+using Savant.Pulse.Utility.Client.PULU01.Models;
 using Savant.Pulse.Utility.Client.PULU01.Utilities;
 
 namespace Savant.Pulse.Utility.Client.PULU01.Services;
@@ -35,7 +36,20 @@ public class ApplicationService : IApplicationService
             Console.WriteLine();
             
             Console.Write("Reading CSV file... ");
-            var records = await _csvReaderService.ReadRecordsAsync(configuration.FilePath, cancellationToken);
+            
+            // Read records based on processing mode
+            IEnumerable<IProcessingRecord> records;
+            if (configuration.Mode == ProcessingMode.Hold)
+            {
+                var holdRecords = await _csvReaderService.ReadRecordsAsync(configuration.FilePath, cancellationToken);
+                records = holdRecords.Cast<IProcessingRecord>();
+            }
+            else
+            {
+                var discardRecords = await _csvReaderService.ReadDiscardRecordsAsync(configuration.FilePath, cancellationToken);
+                records = discardRecords.Cast<IProcessingRecord>();
+            }
+            
             var recordList = records.ToList();
 
             if (recordList.Count == 0)

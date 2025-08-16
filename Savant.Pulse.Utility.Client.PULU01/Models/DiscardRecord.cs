@@ -5,7 +5,7 @@ public record DiscardRecord(
     string ProductCode,
     string LocationCode,
     DateTime? DateTimePlaced = null,
-    string HoldCode = "")
+    string HoldCode = "") : IProcessingRecord
 {
     public string GetKey() => $"{DonationNumber}|{ProductCode}|{LocationCode}|{HoldCode}";
     

@@ -1,11 +1,12 @@
 namespace Savant.Pulse.Utility.Client.PULU01.Models;
 
 public record ProcessingResult(
-    DonationRecord Record,
+    IProcessingRecord Record,
     ProcessingStatus Status,
     string? ErrorMessage = null,
     DateTime ProcessedAt = default)
 {
+    // Original methods for backward compatibility
     public static ProcessingResult CreateSuccess(DonationRecord record)
         => new(record, ProcessingStatus.Success, null, DateTime.UtcNow);
     
@@ -13,6 +14,16 @@ public record ProcessingResult(
         => new(record, ProcessingStatus.Failed, errorMessage, DateTime.UtcNow);
     
     public static ProcessingResult CreateSkipped(DonationRecord record)
+        => new(record, ProcessingStatus.Skipped, null, DateTime.UtcNow);
+
+    // New generic methods
+    public static ProcessingResult CreateSuccess(IProcessingRecord record)
+        => new(record, ProcessingStatus.Success, null, DateTime.UtcNow);
+    
+    public static ProcessingResult CreateFailure(IProcessingRecord record, string errorMessage)
+        => new(record, ProcessingStatus.Failed, errorMessage, DateTime.UtcNow);
+    
+    public static ProcessingResult CreateSkipped(IProcessingRecord record)
         => new(record, ProcessingStatus.Skipped, null, DateTime.UtcNow);
     
     public bool IsSuccess => Status == ProcessingStatus.Success;

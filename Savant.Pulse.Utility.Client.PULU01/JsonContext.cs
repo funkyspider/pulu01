@@ -11,6 +11,7 @@ namespace Savant.Pulse.Utility.Client.PULU01;
 [JsonSerializable(typeof(ClearDiscardFateResponseDto))]
 [JsonSerializable(typeof(DonationRecord))]
 [JsonSerializable(typeof(DiscardRecord))]
+[JsonSerializable(typeof(IProcessingRecord))]
 [JsonSerializable(typeof(ProcessingResult))]
 [JsonSerializable(typeof(ProcessingMode))]
 [JsonSerializable(typeof(DiscardFate))]

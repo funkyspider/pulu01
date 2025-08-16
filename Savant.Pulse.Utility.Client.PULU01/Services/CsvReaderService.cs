@@ -90,6 +90,76 @@ public class CsvReaderService : ICsvReaderService
         return records;
     }
 
+    public async Task<IEnumerable<DiscardRecord>> ReadDiscardRecordsAsync(string filePath, CancellationToken cancellationToken = default)
+    {
+        _logger.LogInformation("Reading discard CSV file: {FilePath}", filePath);
+        
+        var records = new List<DiscardRecord>();
+        var lineNumber = 0;
+        var validRecords = 0;
+        var invalidRecords = 0;
+
+        using var reader = new StreamReader(filePath);
+        var firstLine = await reader.ReadLineAsync();
+        
+        if (firstLine == null)
+        {
+            _logger.LogWarning("CSV file is empty");
+            return records;
+        }
+
+        var headerInfo = DetectDiscardHeaderFormat(firstLine);
+        if (headerInfo.HasHeader)
+        {
+            _logger.LogInformation("Detected discard header row");
+            lineNumber++;
+            
+            if (!headerInfo.IsValid)
+            {
+                _logger.LogError("Invalid discard header format. Missing required fields. Expected: DNTNO, PRDCD, LOCCD");
+                throw new InvalidOperationException("CSV file missing required headers: DNTNO, PRDCD, LOCCD");
+            }
+        }
+        else
+        {
+            // No header, process first line as data
+            var record = ParseDiscardLine(firstLine, headerInfo.FieldMapping!, ++lineNumber);
+            if (record != null)
+            {
+                records.Add(record);
+                validRecords++;
+            }
+            else
+            {
+                invalidRecords++;
+            }
+        }
+
+        while (!reader.EndOfStream && !cancellationToken.IsCancellationRequested)
+        {
+            var line = await reader.ReadLineAsync();
+            if (string.IsNullOrWhiteSpace(line))
+                continue;
+
+            var record = ParseDiscardLine(line, headerInfo.FieldMapping!, ++lineNumber);
+
+            if (record != null)
+            {
+                records.Add(record);
+                validRecords++;
+            }
+            else
+            {
+                invalidRecords++;
+            }
+        }
+
+        _logger.LogInformation("Discard CSV parsing completed. Valid records: {ValidRecords}, Invalid records: {InvalidRecords}", 
+            validRecords, invalidRecords);
+
+        return records;
+    }
+
     private HeaderInfo DetectHeaderFormat(string firstLine)
     {
         var parts = SplitCsvLine(firstLine);
@@ -256,6 +326,131 @@ public class CsvReaderService : ICsvReaderService
         
         parts.Add(current);
         return parts.ToArray();
+    }
+
+    private HeaderInfo DetectDiscardHeaderFormat(string firstLine)
+    {
+        var parts = SplitCsvLine(firstLine);
+        
+        // Check for required discard headers
+        var requiredDiscardHeaders = new[] { "DNTNO", "PRDCD", "LOCCD" };
+        var optionalDiscardHeaders = new[] { "HDATE", "HTIME", "RSHLD" };
+        var headerParts = parts.Select(p => p.Trim().ToUpper()).ToArray();
+        
+        if (requiredDiscardHeaders.All(h => headerParts.Contains(h)))
+        {
+            // Discard format with all required headers
+            var fieldMapping = new Dictionary<string, int>();
+            for (int i = 0; i < headerParts.Length; i++)
+            {
+                fieldMapping[headerParts[i]] = i;
+            }
+            
+            return new HeaderInfo
+            {
+                HasHeader = true,
+                IsNewFormat = true,
+                IsValid = true,
+                FieldMapping = fieldMapping
+            };
+        }
+        
+        // Check if it looks like a header but missing required fields
+        if (parts.Any(p => !char.IsDigit(p.Trim().FirstOrDefault()) && !p.Trim().StartsWith("G")))
+        {
+            return new HeaderInfo
+            {
+                HasHeader = true,
+                IsNewFormat = true,
+                IsValid = false,
+                FieldMapping = null
+            };
+        }
+        
+        // No header detected - treat as data (assume format: DNTNO, PRDCD, LOCCD, HDATE, HTIME, RSHLD)
+        var defaultMapping = new Dictionary<string, int>
+        {
+            ["DNTNO"] = 0,
+            ["PRDCD"] = 1,
+            ["LOCCD"] = 2
+        };
+        
+        // Add optional fields if they exist
+        if (parts.Length > 3) defaultMapping["HDATE"] = 3;
+        if (parts.Length > 4) defaultMapping["HTIME"] = 4;
+        if (parts.Length > 5) defaultMapping["RSHLD"] = 5;
+        
+        return new HeaderInfo
+        {
+            HasHeader = false,
+            IsNewFormat = true,
+            IsValid = true,
+            FieldMapping = defaultMapping
+        };
+    }
+
+    private DiscardRecord? ParseDiscardLine(string line, Dictionary<string, int> fieldMapping, int lineNumber)
+    {
+        try
+        {
+            var parts = SplitCsvLine(line);
+            
+            if (parts.Length < 3)
+            {
+                _logger.LogWarning("Line {LineNumber}: Expected at least 3 fields for discard format, found {FieldCount}", 
+                    lineNumber, parts.Length);
+                return null;
+            }
+
+            var donationNumber = parts[fieldMapping["DNTNO"]].Trim();
+            var productCode = parts[fieldMapping["PRDCD"]].Trim();
+            var locationCode = parts[fieldMapping["LOCCD"]].Trim();
+            
+            // Optional fields
+            var hdate = "";
+            var htime = "";
+            var holdCode = "";
+            
+            if (fieldMapping.ContainsKey("HDATE") && fieldMapping["HDATE"] < parts.Length)
+                hdate = parts[fieldMapping["HDATE"]].Trim();
+                
+            if (fieldMapping.ContainsKey("HTIME") && fieldMapping["HTIME"] < parts.Length)
+                htime = parts[fieldMapping["HTIME"]].Trim();
+                
+            if (fieldMapping.ContainsKey("RSHLD") && fieldMapping["RSHLD"] < parts.Length)
+                holdCode = parts[fieldMapping["RSHLD"]].Trim();
+
+            // Parse date/time if both are present and not zero/empty
+            DateTime? dateTimePlaced = null;
+            if (!string.IsNullOrWhiteSpace(hdate) && !string.IsNullOrWhiteSpace(htime) && 
+                hdate != "00000000" && htime != "000000")
+            {
+                dateTimePlaced = DiscardRecord.ParseHoldDateTime(hdate, htime);
+            }
+
+            var record = new DiscardRecord(donationNumber, productCode, locationCode, dateTimePlaced, holdCode);
+            
+            if (!record.IsValid())
+            {
+                _logger.LogWarning("Line {LineNumber}: Invalid discard record format - Donation: {DonationNumber} ({Length}), Product: {ProductCode} ({Length2}), Location: {LocationCode} ({Length3}), Hold: {HoldCode}",
+                    lineNumber, donationNumber, donationNumber.Length, productCode, productCode.Length, locationCode, locationCode.Length, holdCode);
+                return null;
+            }
+
+            if (!string.IsNullOrWhiteSpace(hdate) && !string.IsNullOrWhiteSpace(htime) && 
+                hdate != "00000000" && htime != "000000" && dateTimePlaced == null)
+            {
+                _logger.LogWarning("Line {LineNumber}: Invalid date/time format - HDATE: {HDate}, HTIME: {HTime}", 
+                    lineNumber, hdate, htime);
+            }
+
+            return record;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Line {LineNumber}: Error parsing discard line: {Line}", lineNumber, line);
+            return null;
+        }
     }
 
     private class HeaderInfo
