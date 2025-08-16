@@ -1,4 +1,4 @@
-using Savant.Pulse.Utility.Client.PULU01.enums;
+using System.Text.Json.Serialization;
 
 namespace Savant.Pulse.Utility.Client.PULU01.Models;
 
@@ -10,8 +10,8 @@ public interface IClearFateRequestDto
 
 public interface IClearDiscardFateRequestDto : IClearFateRequestDto
 {
-    DiscardFate DiscardFate { get; set; }      // only required for clearing batch fates
-    string HoldCode { get; set; }              // only required for clearing batch fates
+    string DiscardFate { get; set; }      // API expects string value like "discard"
+    string HoldCode { get; set; }         // only required for clearing batch fates
     DateTime DateTimePlaced { get; set; }
     string ProgramId { get; set; }
 }
@@ -20,8 +20,9 @@ public class ClearDiscardFateRequestDto : IClearDiscardFateRequestDto
 {
     public string ProductCode { get; set; } = string.Empty;
     public string UnitNumber { get; set; } = string.Empty;
-    public DiscardFate DiscardFate { get; set; } = DiscardFate.None;
+    public string DiscardFate { get; set; } = "discard";  // Default to "discard" as expected by API
     public string HoldCode { get; set; } = string.Empty;
+    [JsonConverter(typeof(DateTimeConverter))]
     public DateTime DateTimePlaced { get; set; } = DateTime.MinValue;
     public string ProgramId { get; set; } = string.Empty;
 
@@ -31,10 +32,10 @@ public class ClearDiscardFateRequestDto : IClearDiscardFateRequestDto
         {
             UnitNumber = record.DonationNumber,
             ProductCode = record.ProductCode,
-            DateTimePlaced = record.DateTimePlaced ?? DateTime.MinValue,
+            DiscardFate = "discard",  // API expects lowercase string "discard"
             HoldCode = record.HoldCode,
-            ProgramId = "PULS11",
-            DiscardFate = DiscardFate.Discard // Default to Discard fate
+            DateTimePlaced = record.DateTimePlaced ?? DateTime.MinValue,
+            ProgramId = "PULS11"
         };
     }
 }
