@@ -121,6 +121,10 @@ rootCommand.SetHandler(async (threads, file, clearCode, mode) =>
     configuration.FilePath = file;
     configuration.ClearCode = clearCode ?? string.Empty; // Handle null clearCode for discard mode
     configuration.Mode = processingMode;
+    
+    // Set mode-specific log file paths
+    configuration.SuccessLogPath = configuration.GetSuccessLogPath();
+    configuration.ErrorLogPath = configuration.GetErrorLogPath();
 
     var host = Host.CreateDefaultBuilder()
         .ConfigureAppConfiguration(builder => 
@@ -169,27 +173,38 @@ return await rootCommand.InvokeAsync(args);
 
 static string GetHelpDescription()
 {
-    return @"PULU01 - Donation Hold Clearing Utility
+    return @"PULU01 - Donation Processing Utility
 
 DESCRIPTION:
-    Processes CSV files containing donation records and clears holds by making API calls.
+    Processes CSV files and makes API calls to clear holds or discard fates.
     Supports multi-threaded processing and can resume from where it left off if interrupted.
 
-CSV FILE FORMAT:
-    The CSV file must contain comma-separated values with a header row as the first line.
-    
+PROCESSING MODES:
+    --mode hold    : Clear donation holds (default)
+    --mode discard : Clear discard fates
+
+CSV FILE FORMAT (HOLD MODE):
     Required column headers (case-insensitive):
     - DNTNO  : Donation Number (any length, will be trimmed of spaces)
     - HDATE  : Hold Date in YYYYMMDD format (e.g., 20240813)
     - HTIME  : Hold Time in HHMMSSzzz format (e.g., 142724591)
     - PRDCD  : Product Code (must be exactly 4 characters)
     - RSHLD  : Hold Code (must be more than 1 character, e.g., COS, RD)
+
+CSV FILE FORMAT (DISCARD MODE):
+    Required column headers (case-insensitive):
+    - DNTNO  : Donation Number (any length, will be trimmed of spaces)
+    - PRDCD  : Product Code (must be exactly 4 characters)
+    - LOCCD  : Location Code (required for discard processing)
     
-    Additional columns in the CSV file will be ignored.
+    Optional column headers:
+    - HDATE  : Hold Date in YYYYMMDD format (optional)
+    - HTIME  : Hold Time in HHMMSSzzz format (optional)
+    - RSHLD  : Hold Code (optional)
 
 CLEAR CODE:
-    Use --clearcode to define the Pulse hold clear code.
-    This is not validated against the database.  Please ensure the code us correct
+    Use --clearcode to define the Pulse clear code (required for hold mode, optional for discard mode).
+    This is not validated against the database. Please ensure the code is correct.
 
 THREADING:
     Use --threads to specify concurrent processing threads (1-50).
@@ -197,18 +212,18 @@ THREADING:
     Recommended: Start with 5-10 threads and adjust based on performance.
 
 OUTPUT FILES:
-    The utility creates JSON files to track processing results:
+    The utility creates JSON files to track processing results (mode-specific names):
     
-    Hold_Clear_Ok.json:
-        Contains successfully processed records with timestamps.
-        Used for resume functionality - processed records are skipped on restart.
+    Hold mode:
+        Hold_Clear_Ok.json     - Successfully processed records
+        Hold_Clear_Errors.json - Failed records with error messages
     
-    Hold_Clear_Errors.json:
-        Contains failed records with error messages and timestamps.
-        Each line is a separate JSON record for easy parsing.
+    Discard mode:
+        Discard_Clear_Ok.json     - Successfully processed records
+        Discard_Clear_Errors.json - Failed records with error messages
 
 RESUME FUNCTIONALITY:
-    If Hold_Clear_Ok.json exists, already processed records will be skipped.
+    If the success file exists, already processed records will be skipped.
     This allows you to resume processing after stopping or if errors occur.
     The utility will show how many records were skipped on startup.
 

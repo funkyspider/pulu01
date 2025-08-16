@@ -30,7 +30,11 @@ public class ApplicationService : IApplicationService
         {
             Console.WriteLine();
             Console.WriteLine("═══════════════════════════════════════════════════════════════");
-            Console.WriteLine("  PULU01 - Donation Hold Clearing Utility");
+            var title = configuration.Mode == ProcessingMode.Hold 
+                ? "  PULU01 - Donation Hold Clearing Utility"
+                : "  PULU01 - Discard Fate Clearing Utility";
+            Console.WriteLine(title);
+            Console.WriteLine($"  Mode: {configuration.Mode}");
             Console.WriteLine("═══════════════════════════════════════════════════════════════");
             Console.WriteLine("  INFO Press Ctrl+C to stop processing and view summary");
             Console.WriteLine();
