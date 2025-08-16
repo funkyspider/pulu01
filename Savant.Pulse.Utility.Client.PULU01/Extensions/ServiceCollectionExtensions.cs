@@ -22,9 +22,9 @@ public static class ServiceCollectionExtensions
             opts.Api = configuration.Api;
         });
         
-        // API Client - Use Mock for testing, HTTP for production
-        services.AddScoped<IApiClientService, MockApiClientService>();
-        // services.AddHttpClient<IApiClientService, HttpApiClientService>();
+        // API Client - HTTP for production, Mock for testing
+        services.AddHttpClient<IApiClientService, HttpApiClientService>();
+        // services.AddScoped<IApiClientService, MockApiClientService>();
         
         // Core application services
         services.AddScoped<IApplicationService, ApplicationService>();
