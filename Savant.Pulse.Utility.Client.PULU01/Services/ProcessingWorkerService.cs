@@ -181,8 +181,7 @@ public class ProcessingWorkerService : IProcessingWorkerService
                     }
                     else if (record is DiscardRecord discardRecord)
                     {
-                        // TODO: Implement ClearDiscardFateAsync in Phase 3
-                        result = ProcessingResult.CreateFailure(discardRecord, "Discard clearing not yet implemented - Phase 3");
+                        result = await _apiClientService.ClearDiscardFateAsync(discardRecord, _configuration.ClearCode ?? string.Empty, cancellationToken);
                     }
                     else
                     {

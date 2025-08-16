@@ -1,8 +1,22 @@
+using Savant.Pulse.Utility.Client.PULU01.enums;
+
 namespace Savant.Pulse.Utility.Client.PULU01.Models;
 
-public class ClearDiscardFateResponseDto
+public interface IClearFateResponseDto
 {
-    public bool Success { get; set; }
-    public string Message { get; set; } = string.Empty;
-    public string ErrorCode { get; set; } = string.Empty;
+    string UnitNumber { get; set; }
+    string ProductCode { get; set; }
+    ClearFateStatus Status { get; set; }
+    ErrorNum ErrorNum { get; set; }
+    string ErrorMessage { get; set; }
+}
+
+public class ClearDiscardFateResponseDto : IClearFateResponseDto
+{
+    public string UnitNumber { get; set; } = string.Empty;
+    public string ProductCode { get; set; } = string.Empty;
+    public ClearFateStatus Status { get; set; } = ClearFateStatus.Error;
+    public ErrorNum ErrorNum { get; set; } = ErrorNum.Unknown;
+    public string ErrorMessage { get; set; } = string.Empty;
+    public List<HoldComponentStatusResponse> HoldComponentStatusResponses { get; set; } = new();
 }

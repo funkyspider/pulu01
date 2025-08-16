@@ -59,116 +59,229 @@ public class HttpApiClientService : IApiClientService
             _configuration.Api.Headers.XEnvironment);
     }
 
-public async Task<ProcessingResult> ClearHoldAsync(DonationRecord record, string clearCode, CancellationToken cancellationToken = default)
-{
-    string responseContent = string.Empty;
-    try
+    public async Task<ProcessingResult> ClearHoldAsync(DonationRecord record, string clearCode, CancellationToken cancellationToken = default)
     {
-        _logger.LogDebug("Clearing hold for record: {RecordKey}", record.GetKey());
-
-        var request = ClearHoldRequestDto.FromDonationRecord(record, clearCode);
-        var json = JsonSerializer.Serialize(request, JsonOptions);
-        
-        // Log the request details for debugging
-        _logger.LogDebug("API Request URL: {Url}", $"{_httpClient.BaseAddress}{_configuration.Api.ClearHoldEndpoint}");
-        _logger.LogDebug("API Request Headers: {Headers}", 
-            string.Join(", ", _httpClient.DefaultRequestHeaders.Select(h => $"{h.Key}: {string.Join(", ", h.Value)}")));
-        _logger.LogDebug("API Request Body: {RequestBody}", json);
-
-        var content = new StringContent(json, Encoding.UTF8, "application/json");
-
-        var response = await _httpClient.PostAsync(_configuration.Api.ClearHoldEndpoint, content, cancellationToken);
-
-        // Log response details
-        _logger.LogDebug("API Response Status: {StatusCode} {ReasonPhrase}", 
-            (int)response.StatusCode, response.ReasonPhrase);
-        _logger.LogDebug("API Response Headers: {Headers}", 
-            string.Join(", ", response.Headers.Select(h => $"{h.Key}: {string.Join(", ", h.Value)}")));
-
-        responseContent = await response.Content.ReadAsStringAsync(cancellationToken);
-        _logger.LogDebug("API Response Body: {ResponseBody}", responseContent);
-
-        if (response.IsSuccessStatusCode)
+        string responseContent = string.Empty;
+        try
         {
-            var responseDto = JsonSerializer.Deserialize<ClearHoldResponseDto>(responseContent, JsonOptions);
+            _logger.LogDebug("Clearing hold for record: {RecordKey}", record.GetKey());
 
-            if (responseDto?.Status == ClearHoldStatus.Cleared)
+            var request = ClearHoldRequestDto.FromDonationRecord(record, clearCode);
+            var json = JsonSerializer.Serialize(request, JsonOptions);
+            
+            // Log the request details for debugging
+            _logger.LogDebug("API Request URL: {Url}", $"{_httpClient.BaseAddress}{_configuration.Api.ClearHoldEndpoint}");
+            _logger.LogDebug("API Request Headers: {Headers}", 
+                string.Join(", ", _httpClient.DefaultRequestHeaders.Select(h => $"{h.Key}: {string.Join(", ", h.Value)}")));
+            _logger.LogDebug("API Request Body: {RequestBody}", json);
+
+            var content = new StringContent(json, Encoding.UTF8, "application/json");
+
+            var response = await _httpClient.PostAsync(_configuration.Api.ClearHoldEndpoint, content, cancellationToken);
+
+            // Log response details
+            _logger.LogDebug("API Response Status: {StatusCode} {ReasonPhrase}", 
+                (int)response.StatusCode, response.ReasonPhrase);
+            _logger.LogDebug("API Response Headers: {Headers}", 
+                string.Join(", ", response.Headers.Select(h => $"{h.Key}: {string.Join(", ", h.Value)}")));
+
+            responseContent = await response.Content.ReadAsStringAsync(cancellationToken);
+            _logger.LogDebug("API Response Body: {ResponseBody}", responseContent);
+
+            if (response.IsSuccessStatusCode)
             {
-                _logger.LogInformation("Hold cleared successfully - Unit: {UnitNumber}, Product: {ProductCode}, Hold: {HoldCode}", 
-                    record.DonationNumber, record.ProductCode, record.HoldCode);
-                _logger.LogDebug("Successfully cleared hold for record: {RecordKey}", record.GetKey());
-                return ProcessingResult.CreateSuccess(record);
+                var responseDto = JsonSerializer.Deserialize<ClearHoldResponseDto>(responseContent, JsonOptions);
+
+                if (responseDto?.Status == ClearHoldStatus.Cleared)
+                {
+                    _logger.LogInformation("Hold cleared successfully - Unit: {UnitNumber}, Product: {ProductCode}, Hold: {HoldCode}", 
+                        record.DonationNumber, record.ProductCode, record.HoldCode);
+                    _logger.LogDebug("Successfully cleared hold for record: {RecordKey}", record.GetKey());
+                    return ProcessingResult.CreateSuccess(record);
+                }
+                else
+                {
+                    var errorMessage = responseDto?.ErrorMessage ?? "Unknown API error";
+                    _logger.LogWarning("Hold clear failed - Unit: {UnitNumber}, Product: {ProductCode}, Hold: {HoldCode}, Error: {ErrorMessage}", 
+                        record.DonationNumber, record.ProductCode, record.HoldCode, errorMessage);
+                    _logger.LogWarning("API returned failure for record {RecordKey}: {ErrorMessage}", record.GetKey(), errorMessage);
+                    return ProcessingResult.CreateFailure(record, errorMessage);
+                }
             }
             else
             {
-                var errorMessage = responseDto?.ErrorMessage ?? "Unknown API error";
-                _logger.LogWarning("Hold clear failed - Unit: {UnitNumber}, Product: {ProductCode}, Hold: {HoldCode}, Error: {ErrorMessage}", 
-                    record.DonationNumber, record.ProductCode, record.HoldCode, errorMessage);
-                _logger.LogWarning("API returned failure for record {RecordKey}: {ErrorMessage}", record.GetKey(), errorMessage);
+                // Enhanced error handling for status code 477
+                if ((int)response.StatusCode == 477)
+                {
+                    _logger.LogWarning("HTTP 477 error - Unit: {UnitNumber}, Product: {ProductCode}, Hold: {HoldCode}, Error: Business rule violation or data validation error", 
+                        record.DonationNumber, record.ProductCode, record.HoldCode);
+                    _logger.LogError("API returned custom error 477 for record {RecordKey}. This may indicate a business rule violation or data validation error.", record.GetKey());
+                }
+                else
+                {
+                    _logger.LogWarning("HTTP error - Unit: {UnitNumber}, Product: {ProductCode}, Hold: {HoldCode}, Status: {StatusCode} {ReasonPhrase}", 
+                        record.DonationNumber, record.ProductCode, record.HoldCode, (int)response.StatusCode, response.ReasonPhrase);
+                }
+
+                var errorMessage = $"HTTP {(int)response.StatusCode} {response.ReasonPhrase}: {responseContent}";
+                _logger.LogError("HTTP error clearing hold for record {RecordKey}: {ErrorMessage}", record.GetKey(), errorMessage);
                 return ProcessingResult.CreateFailure(record, errorMessage);
             }
         }
-        else
+        catch (HttpRequestException ex)
         {
-            // Enhanced error handling for status code 477
-            if ((int)response.StatusCode == 477)
-            {
-                _logger.LogWarning("HTTP 477 error - Unit: {UnitNumber}, Product: {ProductCode}, Hold: {HoldCode}, Error: Business rule violation or data validation error", 
-                    record.DonationNumber, record.ProductCode, record.HoldCode);
-                _logger.LogError("API returned custom error 477 for record {RecordKey}. This may indicate a business rule violation or data validation error.", record.GetKey());
-            }
-            else
-            {
-                _logger.LogWarning("HTTP error - Unit: {UnitNumber}, Product: {ProductCode}, Hold: {HoldCode}, Status: {StatusCode} {ReasonPhrase}", 
-                    record.DonationNumber, record.ProductCode, record.HoldCode, (int)response.StatusCode, response.ReasonPhrase);
-            }
-
-            var errorMessage = $"HTTP {(int)response.StatusCode} {response.ReasonPhrase}: {responseContent}";
-            _logger.LogError("HTTP error clearing hold for record {RecordKey}: {ErrorMessage}", record.GetKey(), errorMessage);
+            var errorMessage = $"HTTP request failed: {ex.Message}";
+            _logger.LogWarning("Request failed - Unit: {UnitNumber}, Product: {ProductCode}, Hold: {HoldCode}, Error: {ErrorMessage}", 
+                record.DonationNumber, record.ProductCode, record.HoldCode, ex.Message);
+            _logger.LogError(ex, "HTTP request exception clearing hold for record {RecordKey}", record.GetKey());
+            return ProcessingResult.CreateFailure(record, errorMessage);
+        }
+        catch (TaskCanceledException ex) when (ex.InnerException is TimeoutException)
+        {
+            var errorMessage = "Request timeout";
+            _logger.LogWarning("Request timeout - Unit: {UnitNumber}, Product: {ProductCode}, Hold: {HoldCode}", 
+                record.DonationNumber, record.ProductCode, record.HoldCode);
+            _logger.LogError(ex, "Timeout clearing hold for record {RecordKey}", record.GetKey());
+            return ProcessingResult.CreateFailure(record, errorMessage);
+        }
+        catch (TaskCanceledException ex)
+        {
+            var errorMessage = "Request cancelled";
+            _logger.LogWarning("Request cancelled - Unit: {UnitNumber}, Product: {ProductCode}, Hold: {HoldCode}", 
+                record.DonationNumber, record.ProductCode, record.HoldCode);
+            _logger.LogWarning(ex, "Request cancelled for record {RecordKey}", record.GetKey());
+            return ProcessingResult.CreateFailure(record, errorMessage);
+        }
+        catch (JsonException ex)
+        {
+            var errorMessage = $"JSON serialization/deserialization error: {ex.Message}";
+            _logger.LogWarning("JSON error - Unit: {UnitNumber}, Product: {ProductCode}, Hold: {HoldCode}, Error: {ErrorMessage}", 
+                record.DonationNumber, record.ProductCode, record.HoldCode, ex.Message);
+            _logger.LogError("JSON deserialization failed for record {RecordKey}. Response content: {ResponseContent}", 
+                record.GetKey(), responseContent);
+            _logger.LogError(ex, "JSON error clearing hold for record {RecordKey}", record.GetKey());
+            return ProcessingResult.CreateFailure(record, errorMessage);
+        }
+        catch (Exception ex)
+        {
+            var errorMessage = $"Unexpected error: {ex.Message}";
+            _logger.LogWarning("Unexpected error - Unit: {UnitNumber}, Product: {ProductCode}, Hold: {HoldCode}, Error: {ErrorMessage}", 
+                record.DonationNumber, record.ProductCode, record.HoldCode, ex.Message);
+            _logger.LogError(ex, "Unexpected error clearing hold for record {RecordKey}", record.GetKey());
             return ProcessingResult.CreateFailure(record, errorMessage);
         }
     }
-    catch (HttpRequestException ex)
+
+    public async Task<ProcessingResult> ClearDiscardFateAsync(DiscardRecord record, string clearCode, CancellationToken cancellationToken = default)
     {
-        var errorMessage = $"HTTP request failed: {ex.Message}";
-        _logger.LogWarning("Request failed - Unit: {UnitNumber}, Product: {ProductCode}, Hold: {HoldCode}, Error: {ErrorMessage}", 
-            record.DonationNumber, record.ProductCode, record.HoldCode, ex.Message);
-        _logger.LogError(ex, "HTTP request exception clearing hold for record {RecordKey}", record.GetKey());
-        return ProcessingResult.CreateFailure(record, errorMessage);
+        string responseContent = string.Empty;
+        try
+        {
+            _logger.LogDebug("Clearing discard fate for record: {RecordKey}", record.GetKey());
+
+            var request = ClearDiscardFateRequestDto.FromDiscardRecord(record, clearCode);
+            var json = JsonSerializer.Serialize(request, JsonOptions);
+            
+            // Log the request details for debugging
+            _logger.LogDebug("API Request URL: {Url}", $"{_httpClient.BaseAddress}{_configuration.Api.ClearDiscardEndpoint}");
+            _logger.LogDebug("API Request Headers: {Headers}", 
+                string.Join(", ", _httpClient.DefaultRequestHeaders.Select(h => $"{h.Key}: {string.Join(", ", h.Value)}")));
+            _logger.LogDebug("API Request Body: {RequestBody}", json);
+
+            var content = new StringContent(json, Encoding.UTF8, "application/json");
+
+            var response = await _httpClient.PostAsync(_configuration.Api.ClearDiscardEndpoint, content, cancellationToken);
+
+            // Log response details
+            _logger.LogDebug("API Response Status: {StatusCode} {ReasonPhrase}", 
+                (int)response.StatusCode, response.ReasonPhrase);
+            _logger.LogDebug("API Response Headers: {Headers}", 
+                string.Join(", ", response.Headers.Select(h => $"{h.Key}: {string.Join(", ", h.Value)}")));
+
+            responseContent = await response.Content.ReadAsStringAsync(cancellationToken);
+            _logger.LogDebug("API Response Body: {ResponseBody}", responseContent);
+
+            if (response.IsSuccessStatusCode)
+            {
+                var responseDto = JsonSerializer.Deserialize<ClearDiscardFateResponseDto>(responseContent, JsonOptions);
+
+                if (responseDto?.Status == ClearFateStatus.Cleared)
+                {
+                    _logger.LogInformation("Discard fate cleared successfully - Unit: {UnitNumber}, Product: {ProductCode}, Location: {LocationCode}", 
+                        record.DonationNumber, record.ProductCode, record.LocationCode);
+                    _logger.LogDebug("Successfully cleared discard fate for record: {RecordKey}", record.GetKey());
+                    return ProcessingResult.CreateSuccess(record);
+                }
+                else
+                {
+                    var errorMessage = responseDto?.ErrorMessage ?? "Unknown API error";
+                    _logger.LogWarning("Discard fate clear failed - Unit: {UnitNumber}, Product: {ProductCode}, Location: {LocationCode}, Error: {ErrorMessage}", 
+                        record.DonationNumber, record.ProductCode, record.LocationCode, errorMessage);
+                    _logger.LogWarning("API returned failure for record {RecordKey}: {ErrorMessage}", record.GetKey(), errorMessage);
+                    return ProcessingResult.CreateFailure(record, errorMessage);
+                }
+            }
+            else
+            {
+                // Enhanced error handling for status code 477
+                if ((int)response.StatusCode == 477)
+                {
+                    _logger.LogWarning("HTTP 477 error - Unit: {UnitNumber}, Product: {ProductCode}, Location: {LocationCode}, Error: Business rule violation or data validation error", 
+                        record.DonationNumber, record.ProductCode, record.LocationCode);
+                    _logger.LogError("API returned custom error 477 for record {RecordKey}. This may indicate a business rule violation or data validation error.", record.GetKey());
+                }
+                else
+                {
+                    _logger.LogWarning("HTTP error - Unit: {UnitNumber}, Product: {ProductCode}, Location: {LocationCode}, Status: {StatusCode} {ReasonPhrase}", 
+                        record.DonationNumber, record.ProductCode, record.LocationCode, (int)response.StatusCode, response.ReasonPhrase);
+                }
+
+                var errorMessage = $"HTTP {(int)response.StatusCode} {response.ReasonPhrase}: {responseContent}";
+                _logger.LogError("HTTP error clearing discard fate for record {RecordKey}: {ErrorMessage}", record.GetKey(), errorMessage);
+                return ProcessingResult.CreateFailure(record, errorMessage);
+            }
+        }
+        catch (HttpRequestException ex)
+        {
+            var errorMessage = $"HTTP request failed: {ex.Message}";
+            _logger.LogWarning("Request failed - Unit: {UnitNumber}, Product: {ProductCode}, Location: {LocationCode}, Error: {ErrorMessage}", 
+                record.DonationNumber, record.ProductCode, record.LocationCode, ex.Message);
+            _logger.LogError(ex, "HTTP request exception clearing discard fate for record {RecordKey}", record.GetKey());
+            return ProcessingResult.CreateFailure(record, errorMessage);
+        }
+        catch (TaskCanceledException ex) when (ex.InnerException is TimeoutException)
+        {
+            var errorMessage = "Request timeout";
+            _logger.LogWarning("Request timeout - Unit: {UnitNumber}, Product: {ProductCode}, Location: {LocationCode}", 
+                record.DonationNumber, record.ProductCode, record.LocationCode);
+            _logger.LogError(ex, "Timeout clearing discard fate for record {RecordKey}", record.GetKey());
+            return ProcessingResult.CreateFailure(record, errorMessage);
+        }
+        catch (TaskCanceledException ex)
+        {
+            var errorMessage = "Request cancelled";
+            _logger.LogWarning("Request cancelled - Unit: {UnitNumber}, Product: {ProductCode}, Location: {LocationCode}", 
+                record.DonationNumber, record.ProductCode, record.LocationCode);
+            _logger.LogWarning(ex, "Request cancelled for record {RecordKey}", record.GetKey());
+            return ProcessingResult.CreateFailure(record, errorMessage);
+        }
+        catch (JsonException ex)
+        {
+            var errorMessage = $"JSON serialization/deserialization error: {ex.Message}";
+            _logger.LogWarning("JSON error - Unit: {UnitNumber}, Product: {ProductCode}, Location: {LocationCode}, Error: {ErrorMessage}", 
+                record.DonationNumber, record.ProductCode, record.LocationCode, ex.Message);
+            _logger.LogError("JSON deserialization failed for record {RecordKey}. Response content: {ResponseContent}", 
+                record.GetKey(), responseContent);
+            _logger.LogError(ex, "JSON error clearing discard fate for record {RecordKey}", record.GetKey());
+            return ProcessingResult.CreateFailure(record, errorMessage);
+        }
+        catch (Exception ex)
+        {
+            var errorMessage = $"Unexpected error: {ex.Message}";
+            _logger.LogWarning("Unexpected error - Unit: {UnitNumber}, Product: {ProductCode}, Location: {LocationCode}, Error: {ErrorMessage}", 
+                record.DonationNumber, record.ProductCode, record.LocationCode, ex.Message);
+            _logger.LogError(ex, "Unexpected error clearing discard fate for record {RecordKey}", record.GetKey());
+            return ProcessingResult.CreateFailure(record, errorMessage);
+        }
     }
-    catch (TaskCanceledException ex) when (ex.InnerException is TimeoutException)
-    {
-        var errorMessage = "Request timeout";
-        _logger.LogWarning("Request timeout - Unit: {UnitNumber}, Product: {ProductCode}, Hold: {HoldCode}", 
-            record.DonationNumber, record.ProductCode, record.HoldCode);
-        _logger.LogError(ex, "Timeout clearing hold for record {RecordKey}", record.GetKey());
-        return ProcessingResult.CreateFailure(record, errorMessage);
-    }
-    catch (TaskCanceledException ex)
-    {
-        var errorMessage = "Request cancelled";
-        _logger.LogWarning("Request cancelled - Unit: {UnitNumber}, Product: {ProductCode}, Hold: {HoldCode}", 
-            record.DonationNumber, record.ProductCode, record.HoldCode);
-        _logger.LogWarning(ex, "Request cancelled for record {RecordKey}", record.GetKey());
-        return ProcessingResult.CreateFailure(record, errorMessage);
-    }
-    catch (JsonException ex)
-    {
-        var errorMessage = $"JSON serialization/deserialization error: {ex.Message}";
-        _logger.LogWarning("JSON error - Unit: {UnitNumber}, Product: {ProductCode}, Hold: {HoldCode}, Error: {ErrorMessage}", 
-            record.DonationNumber, record.ProductCode, record.HoldCode, ex.Message);
-        _logger.LogError("JSON deserialization failed for record {RecordKey}. Response content: {ResponseContent}", 
-            record.GetKey(), responseContent);
-        _logger.LogError(ex, "JSON error clearing hold for record {RecordKey}", record.GetKey());
-        return ProcessingResult.CreateFailure(record, errorMessage);
-    }
-    catch (Exception ex)
-    {
-        var errorMessage = $"Unexpected error: {ex.Message}";
-        _logger.LogWarning("Unexpected error - Unit: {UnitNumber}, Product: {ProductCode}, Hold: {HoldCode}, Error: {ErrorMessage}", 
-            record.DonationNumber, record.ProductCode, record.HoldCode, ex.Message);
-        _logger.LogError(ex, "Unexpected error clearing hold for record {RecordKey}", record.GetKey());
-        return ProcessingResult.CreateFailure(record, errorMessage);
-    }
-}
 }
