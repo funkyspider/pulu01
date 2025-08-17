@@ -1,4 +1,9 @@
 # Plan
+
+**Note: This is the original specification for the hold clearing feature. The application has been extended to support dual-mode processing (hold clearing and discard fate clearing). See clear_discard_plan.md for the discard feature specification.**
+
+## Original Hold Clearing Specification
+
 A utility which will clear holds placed on a donation/product code combination by making an API call to an endpoint.
 Te donations to process will be provided in a .csv file.
 The file could containind 30,000+ rows
