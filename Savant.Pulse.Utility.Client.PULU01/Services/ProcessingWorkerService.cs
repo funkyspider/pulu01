@@ -30,6 +30,12 @@ public class ProcessingWorkerService : IProcessingWorkerService
 
     public async Task ProcessRecordsAsync(IEnumerable<DonationRecord> records, CancellationToken cancellationToken = default)
     {
+        // Convert to IProcessingRecord and delegate to generic method
+        await ProcessRecordsAsync(records.Cast<IProcessingRecord>(), cancellationToken);
+    }
+
+    public async Task ProcessRecordsAsync(IEnumerable<IProcessingRecord> records, CancellationToken cancellationToken = default)
+    {
         var recordList = records.ToList();
         
         // Load processed records for resume functionality
@@ -64,14 +70,14 @@ public class ProcessingWorkerService : IProcessingWorkerService
         }
 
         // Create a concurrent queue for work distribution
-        var workQueue = new ConcurrentQueue<DonationRecord>();
+        var workQueue = new ConcurrentQueue<IProcessingRecord>();
         foreach (var record in unprocessedRecords)
         {
             workQueue.Enqueue(record);
         }
 
         // Collections for batch processing
-        var successfulRecords = new ConcurrentBag<DonationRecord>();
+        var successfulRecords = new ConcurrentBag<IProcessingRecord>();
         var failedResults = new ConcurrentBag<ProcessingResult>();
 
         // Create and start worker tasks
@@ -150,8 +156,8 @@ public class ProcessingWorkerService : IProcessingWorkerService
 
     private async Task ProcessWorkerQueue(
         int workerId,
-        ConcurrentQueue<DonationRecord> workQueue,
-        ConcurrentBag<DonationRecord> successfulRecords,
+        ConcurrentQueue<IProcessingRecord> workQueue,
+        ConcurrentBag<IProcessingRecord> successfulRecords,
         ConcurrentBag<ProcessingResult> failedResults,
         SemaphoreSlim semaphore,
         CancellationToken cancellationToken)
@@ -166,7 +172,21 @@ public class ProcessingWorkerService : IProcessingWorkerService
                 
                 try
                 {
-                    var result = await _apiClientService.ClearHoldAsync(record, _configuration.ClearCode, cancellationToken);
+                    ProcessingResult result;
+                    
+                    // Route to appropriate API method based on record type
+                    if (record is DonationRecord donationRecord)
+                    {
+                        result = await _apiClientService.ClearHoldAsync(donationRecord, _configuration.ClearCode, cancellationToken);
+                    }
+                    else if (record is DiscardRecord discardRecord)
+                    {
+                        result = await _apiClientService.ClearDiscardFateAsync(discardRecord, _configuration.ClearCode ?? string.Empty, cancellationToken);
+                    }
+                    else
+                    {
+                        result = ProcessingResult.CreateFailure(record, $"Unknown record type: {record.GetType().Name}");
+                    }
                     
                     if (result.IsSuccess)
                     {
@@ -210,7 +230,7 @@ public class ProcessingWorkerService : IProcessingWorkerService
     }
 
     private async Task BatchSaveResults(
-        ConcurrentBag<DonationRecord> successfulRecords,
+        ConcurrentBag<IProcessingRecord> successfulRecords,
         ConcurrentBag<ProcessingResult> failedResults,
         CancellationToken cancellationToken)
     {
@@ -227,7 +247,7 @@ public class ProcessingWorkerService : IProcessingWorkerService
                 // Save successful records if batch size reached
                 if (currentSuccessCount - lastSuccessCount >= _configuration.FileWriteBatchSize)
                 {
-                    var recordsToSave = new List<DonationRecord>();
+                    var recordsToSave = new List<IProcessingRecord>();
                     for (int i = 0; i < currentSuccessCount - lastSuccessCount; i++)
                     {
                         if (successfulRecords.TryTake(out var record))

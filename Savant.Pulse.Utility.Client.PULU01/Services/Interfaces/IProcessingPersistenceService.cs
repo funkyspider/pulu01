@@ -7,7 +7,9 @@ public interface IProcessingPersistenceService
 {
     Task<HashSet<string>> LoadProcessedRecordsAsync(CancellationToken cancellationToken = default);
     Task SaveSuccessfulRecordsAsync(IEnumerable<DonationRecord> records, CancellationToken cancellationToken = default);
+    Task SaveSuccessfulRecordsAsync(IEnumerable<IProcessingRecord> records, CancellationToken cancellationToken = default);
     Task SaveFailedRecordsAsync(IEnumerable<ProcessingResult> results, CancellationToken cancellationToken = default);
     Task FlushAllAsync(CancellationToken cancellationToken = default);
     bool IsProcessed(DonationRecord record);
+    bool IsProcessed(IProcessingRecord record);
 }

@@ -6,4 +6,5 @@ namespace Savant.Pulse.Utility.Client.PULU01.Services;
 public interface IApiClientService
 {
     Task<ProcessingResult> ClearHoldAsync(DonationRecord record, string clearCode, CancellationToken cancellationToken = default);
+    Task<ProcessingResult> ClearDiscardFateAsync(DiscardRecord record, string clearCode, CancellationToken cancellationToken = default);
 }

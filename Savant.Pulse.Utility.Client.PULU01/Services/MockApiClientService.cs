@@ -64,4 +64,57 @@ public class MockApiClientService : IApiClientService
             return ProcessingResult.CreateFailure(record, $"Unexpected error: {ex.Message}");
         }
     }
+
+    public async Task<ProcessingResult> ClearDiscardFateAsync(DiscardRecord record, string clearCode, CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            var delayMs = _random.Next(1000, 2001);
+            await Task.Delay(delayMs, cancellationToken);
+
+            var successRate = 0.95;
+            var isSuccess = _random.NextDouble() < successRate;
+
+            if (isSuccess)
+            {
+                // Removed debug logging for successful operations to clean up output
+                
+                return ProcessingResult.CreateSuccess(record);
+            }
+            else
+            {
+                var errorMessages = new[]
+                {
+                    "Discard fate not found",
+                    "Unit already processed",
+                    "Invalid location code",
+                    "API timeout",
+                    "Service temporarily unavailable",
+                    "Location not accessible"
+                };
+                
+                var errorMessage = errorMessages[_random.Next(errorMessages.Length)];
+                
+                // Log errors at debug level to reduce console clutter - summary will be shown at the end
+                _logger.LogDebug("Failed to clear discard fate for {DonationNumber}-{ProductCode}-{LocationCode}: {Error}", 
+                    record.DonationNumber, record.ProductCode, record.LocationCode, errorMessage);
+                
+                return ProcessingResult.CreateFailure(record, errorMessage);
+            }
+        }
+        catch (OperationCanceledException)
+        {
+            _logger.LogDebug("API call cancelled for {DonationNumber}-{ProductCode}-{LocationCode}", 
+                record.DonationNumber, record.ProductCode, record.LocationCode);
+            
+            return ProcessingResult.CreateFailure(record, "Operation cancelled");
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Unexpected error clearing discard fate for {DonationNumber}-{ProductCode}-{LocationCode}", 
+                record.DonationNumber, record.ProductCode, record.LocationCode);
+            
+            return ProcessingResult.CreateFailure(record, $"Unexpected error: {ex.Message}");
+        }
+    }
 }

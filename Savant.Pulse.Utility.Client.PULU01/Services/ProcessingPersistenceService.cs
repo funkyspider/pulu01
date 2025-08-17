@@ -11,7 +11,7 @@ public class ProcessingPersistenceService : IProcessingPersistenceService
     private readonly ILogger<ProcessingPersistenceService> _logger;
     private readonly AppConfiguration _configuration;
     private readonly HashSet<string> _processedRecords = new();
-    private readonly ConcurrentQueue<DonationRecord> _successBatch = new();
+    private readonly ConcurrentQueue<IProcessingRecord> _successBatch = new();
     private readonly ConcurrentQueue<ProcessingResult> _errorBatch = new();
     private readonly SemaphoreSlim _writeSemaphore = new(1, 1);
 
@@ -60,7 +60,18 @@ public class ProcessingPersistenceService : IProcessingPersistenceService
         return _processedRecords.Contains(record.GetKey());
     }
 
+    public bool IsProcessed(IProcessingRecord record)
+    {
+        return _processedRecords.Contains(record.GetKey());
+    }
+
     public async Task SaveSuccessfulRecordsAsync(IEnumerable<DonationRecord> records, CancellationToken cancellationToken = default)
+    {
+        // Convert to IProcessingRecord and delegate to generic method
+        await SaveSuccessfulRecordsAsync(records.Cast<IProcessingRecord>(), cancellationToken);
+    }
+
+    public async Task SaveSuccessfulRecordsAsync(IEnumerable<IProcessingRecord> records, CancellationToken cancellationToken = default)
     {
         foreach (var record in records)
         {
@@ -96,7 +107,7 @@ public class ProcessingPersistenceService : IProcessingPersistenceService
         await _writeSemaphore.WaitAsync(cancellationToken);
         try
         {
-            var recordsToWrite = new List<DonationRecord>();
+            var recordsToWrite = new List<IProcessingRecord>();
             while (_successBatch.TryDequeue(out var record))
             {
                 recordsToWrite.Add(record);
@@ -114,13 +125,43 @@ public class ProcessingPersistenceService : IProcessingPersistenceService
                 }
             }
 
-            var newRecords = recordsToWrite.Select(r => new ProcessedRecord
+            var newRecords = recordsToWrite.Select(r => 
             {
-                Key = r.GetKey(),
-                DonationNumber = r.DonationNumber,
-                ProductCode = r.ProductCode,
-                HoldCode = r.HoldCode,
-                ProcessedAt = DateTime.UtcNow
+                // Handle different record types
+                if (r is DonationRecord donationRecord)
+                {
+                    return new ProcessedRecord
+                    {
+                        Key = r.GetKey(),
+                        DonationNumber = donationRecord.DonationNumber,
+                        ProductCode = donationRecord.ProductCode,
+                        HoldCode = donationRecord.HoldCode,
+                        ProcessedAt = DateTime.UtcNow
+                    };
+                }
+                else if (r is DiscardRecord discardRecord)
+                {
+                    return new ProcessedRecord
+                    {
+                        Key = r.GetKey(),
+                        DonationNumber = discardRecord.DonationNumber,
+                        ProductCode = discardRecord.ProductCode,
+                        HoldCode = discardRecord.HoldCode,
+                        ProcessedAt = DateTime.UtcNow
+                    };
+                }
+                else
+                {
+                    // Generic fallback
+                    return new ProcessedRecord
+                    {
+                        Key = r.GetKey(),
+                        DonationNumber = "Unknown",
+                        ProductCode = "Unknown",
+                        HoldCode = "Unknown",
+                        ProcessedAt = DateTime.UtcNow
+                    };
+                }
             });
 
             existingRecords.AddRange(newRecords);
@@ -141,14 +182,35 @@ public class ProcessingPersistenceService : IProcessingPersistenceService
         await _writeSemaphore.WaitAsync(cancellationToken);
         try
         {
-            var failedRecord = new FailedRecord
+            var failedRecord = result.Record switch
             {
-                Key = result.Record.GetKey(),
-                DonationNumber = result.Record.DonationNumber,
-                ProductCode = result.Record.ProductCode,
-                HoldCode = result.Record.HoldCode,
-                ErrorMessage = result.ErrorMessage ?? "Unknown error",
-                FailedAt = result.ProcessedAt
+                DonationRecord donationRecord => new FailedRecord
+                {
+                    Key = result.Record.GetKey(),
+                    DonationNumber = donationRecord.DonationNumber,
+                    ProductCode = donationRecord.ProductCode,
+                    HoldCode = donationRecord.HoldCode,
+                    ErrorMessage = result.ErrorMessage ?? "Unknown error",
+                    FailedAt = result.ProcessedAt
+                },
+                DiscardRecord discardRecord => new FailedRecord
+                {
+                    Key = result.Record.GetKey(),
+                    DonationNumber = discardRecord.DonationNumber,
+                    ProductCode = discardRecord.ProductCode,
+                    HoldCode = discardRecord.HoldCode,
+                    ErrorMessage = result.ErrorMessage ?? "Unknown error",
+                    FailedAt = result.ProcessedAt
+                },
+                _ => new FailedRecord
+                {
+                    Key = result.Record.GetKey(),
+                    DonationNumber = "Unknown",
+                    ProductCode = "Unknown", 
+                    HoldCode = "Unknown",
+                    ErrorMessage = result.ErrorMessage ?? "Unknown error",
+                    FailedAt = result.ProcessedAt
+                }
             };
 
             // Append single record as JSON line to avoid reading entire file

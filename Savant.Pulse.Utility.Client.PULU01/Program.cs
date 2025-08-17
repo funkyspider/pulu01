@@ -8,6 +8,7 @@ using System.CommandLine;
 using Savant.Pulse.Utility.Client.PULU01.Configuration;
 using Savant.Pulse.Utility.Client.PULU01.Extensions;
 using Savant.Pulse.Utility.Client.PULU01.Services;
+using Savant.Pulse.Utility.Client.PULU01.Models;
 
 var threadsOption = new Option<int>(
     "--threads",
@@ -23,19 +24,31 @@ var fileOption = new Option<string>(
 
 var clearCodeOption = new Option<string>(
     "--clearcode",
-    description: "Pulse clear code")
+    description: "Pulse clear code (required for hold mode, optional for discard mode)");
+
+var modeOption = new Option<string>(
+    "--mode",
+    getDefaultValue: () => "hold",
+    description: "Processing mode: 'hold' for donation hold clearing (default) or 'discard' for discard fate clearing");
+
+modeOption.AddValidator(result =>
 {
-    IsRequired = true
-};
+    var value = result.GetValueOrDefault<string>()?.ToLowerInvariant();
+    if (value != "hold" && value != "discard")
+    {
+        result.ErrorMessage = "Mode must be either 'hold' or 'discard'";
+    }
+});
 
 var rootCommand = new RootCommand(GetHelpDescription())
 {
     threadsOption,
     fileOption,
-    clearCodeOption
+    clearCodeOption,
+    modeOption
 };
 
-rootCommand.SetHandler(async (threads, file,clearCode) =>
+rootCommand.SetHandler(async (threads, file, clearCode, mode) =>
 {
     if (!File.Exists(file))
     {
@@ -49,10 +62,24 @@ rootCommand.SetHandler(async (threads, file,clearCode) =>
         Environment.Exit(1);
     }
 
-    if (string.IsNullOrEmpty(clearCode) || clearCode.Length < 2 || clearCode.Length > 3)
+    // Validate clearcode based on mode
+    var normalizedMode = mode.ToLowerInvariant();
+    if (normalizedMode == "hold")
     {
-        Console.WriteLine("Error: Clear code is required and must be between 2 and 3 characters.");
-        Environment.Exit(1);
+        if (string.IsNullOrEmpty(clearCode) || clearCode.Length < 2 || clearCode.Length > 3)
+        {
+            Console.WriteLine("Error: Clear code is required for hold mode and must be between 2 and 3 characters.");
+            Environment.Exit(1);
+        }
+    }
+    else if (normalizedMode == "discard")
+    {
+        // For discard mode, clearcode is optional
+        if (!string.IsNullOrEmpty(clearCode) && (clearCode.Length < 2 || clearCode.Length > 3))
+        {
+            Console.WriteLine("Error: If provided, clear code must be between 2 and 3 characters.");
+            Environment.Exit(1);
+        }
     }
 
     // Load configuration from appsettings.json
@@ -74,16 +101,30 @@ rootCommand.SetHandler(async (threads, file,clearCode) =>
     
     configuration.Api.BaseUrl = config.GetValue<string>("Api:BaseUrl") ?? string.Empty;
     configuration.Api.ClearHoldEndpoint = config.GetValue<string>("Api:ClearHoldEndpoint") ?? string.Empty;
+    configuration.Api.ClearDiscardEndpoint = config.GetValue<string>("Api:ClearDiscardEndpoint") ?? "/api/v43/ComponentHold/clear-discard-fate";
     configuration.Api.TimeoutSeconds = config.GetValue<int>("Api:TimeoutSeconds", 30);
     
     configuration.Api.Headers.XUserId = config.GetValue<string>("Api:Headers:XUserId") ?? string.Empty;
     configuration.Api.Headers.XAppName = config.GetValue<string>("Api:Headers:XAppName") ?? string.Empty;
     configuration.Api.Headers.XEnvironment = config.GetValue<string>("Api:Headers:XEnvironment") ?? string.Empty;
     
+    // Parse and set processing mode
+    var processingMode = mode.ToLowerInvariant() switch
+    {
+        "hold" => ProcessingMode.Hold,
+        "discard" => ProcessingMode.Discard,
+        _ => ProcessingMode.Hold // Default to hold
+    };
+
     // Override with command line parameters
     configuration.ThreadCount = threads != configuration.ThreadCount ? threads : configuration.ThreadCount;
     configuration.FilePath = file;
-    configuration.ClearCode = clearCode;
+    configuration.ClearCode = clearCode ?? string.Empty; // Handle null clearCode for discard mode
+    configuration.Mode = processingMode;
+    
+    // Set mode-specific log file paths
+    configuration.SuccessLogPath = configuration.GetSuccessLogPath();
+    configuration.ErrorLogPath = configuration.GetErrorLogPath();
 
     var host = Host.CreateDefaultBuilder()
         .ConfigureAppConfiguration(builder => 
@@ -126,33 +167,44 @@ rootCommand.SetHandler(async (threads, file,clearCode) =>
         Environment.Exit(1);
     }
     
-}, threadsOption, fileOption, clearCodeOption);
+}, threadsOption, fileOption, clearCodeOption, modeOption);
 
 return await rootCommand.InvokeAsync(args);
 
 static string GetHelpDescription()
 {
-    return @"PULU01 - Donation Hold Clearing Utility
+    return @"PULU01 - Donation Processing Utility
 
 DESCRIPTION:
-    Processes CSV files containing donation records and clears holds by making API calls.
+    Processes CSV files and makes API calls to clear holds or discard fates.
     Supports multi-threaded processing and can resume from where it left off if interrupted.
 
-CSV FILE FORMAT:
-    The CSV file must contain comma-separated values with a header row as the first line.
-    
+PROCESSING MODES:
+    --mode hold    : Clear donation holds (default)
+    --mode discard : Clear discard fates
+
+CSV FILE FORMAT (HOLD MODE):
     Required column headers (case-insensitive):
     - DNTNO  : Donation Number (any length, will be trimmed of spaces)
     - HDATE  : Hold Date in YYYYMMDD format (e.g., 20240813)
     - HTIME  : Hold Time in HHMMSSzzz format (e.g., 142724591)
     - PRDCD  : Product Code (must be exactly 4 characters)
     - RSHLD  : Hold Code (must be more than 1 character, e.g., COS, RD)
+
+CSV FILE FORMAT (DISCARD MODE):
+    Required column headers (case-insensitive):
+    - DNTNO  : Donation Number (any length, will be trimmed of spaces)
+    - PRDCD  : Product Code (must be exactly 4 characters)
+    - LOCCD  : Location Code (required for discard processing)
     
-    Additional columns in the CSV file will be ignored.
+    Optional column headers:
+    - HDATE  : Hold Date in YYYYMMDD format (optional)
+    - HTIME  : Hold Time in HHMMSSzzz format (optional)
+    - RSHLD  : Hold Code (optional)
 
 CLEAR CODE:
-    Use --clearcode to define the Pulse hold clear code.
-    This is not validated against the database.  Please ensure the code us correct
+    Use --clearcode to define the Pulse clear code (required for hold mode, optional for discard mode).
+    This is not validated against the database. Please ensure the code is correct.
 
 THREADING:
     Use --threads to specify concurrent processing threads (1-50).
@@ -160,18 +212,18 @@ THREADING:
     Recommended: Start with 5-10 threads and adjust based on performance.
 
 OUTPUT FILES:
-    The utility creates JSON files to track processing results:
+    The utility creates JSON files to track processing results (mode-specific names):
     
-    Hold_Clear_Ok.json:
-        Contains successfully processed records with timestamps.
-        Used for resume functionality - processed records are skipped on restart.
+    Hold mode:
+        Hold_Clear_Ok.json     - Successfully processed records
+        Hold_Clear_Errors.json - Failed records with error messages
     
-    Hold_Clear_Errors.json:
-        Contains failed records with error messages and timestamps.
-        Each line is a separate JSON record for easy parsing.
+    Discard mode:
+        Discard_Clear_Ok.json     - Successfully processed records
+        Discard_Clear_Errors.json - Failed records with error messages
 
 RESUME FUNCTIONALITY:
-    If Hold_Clear_Ok.json exists, already processed records will be skipped.
+    If the success file exists, already processed records will be skipped.
     This allows you to resume processing after stopping or if errors occur.
     The utility will show how many records were skipped on startup.
 

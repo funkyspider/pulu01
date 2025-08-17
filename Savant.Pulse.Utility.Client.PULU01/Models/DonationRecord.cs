@@ -4,14 +4,14 @@ public record DonationRecord(
     string DonationNumber,
     string ProductCode,
     string HoldCode,
-    DateTime? HoldDateTime = null)
+    DateTime? HoldDateTime = null) : IProcessingRecord
 {
     public string GetKey() => $"{DonationNumber}|{ProductCode}|{HoldCode}";
     
     public bool IsValid()
     {
         return !string.IsNullOrWhiteSpace(DonationNumber) &&
-               !string.IsNullOrWhiteSpace(ProductCode) && (ProductCode.Length == 4 || ProductCode.ToUpper() == 'ALL') &&
+               !string.IsNullOrWhiteSpace(ProductCode) && (ProductCode.Length == 4 || ProductCode.ToUpper() == "ALL") &&
                !string.IsNullOrWhiteSpace(HoldCode) && HoldCode.Length > 1;
     }
 
