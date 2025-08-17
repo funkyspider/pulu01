@@ -123,7 +123,7 @@ public class HttpApiClientService : IApiClientService
                         record.DonationNumber, record.ProductCode, record.HoldCode, (int)response.StatusCode, response.ReasonPhrase);
                 }
 
-                var errorMessage = ExtractErrorMessage(responseContent, (int)response.StatusCode, response.ReasonPhrase);
+                var errorMessage = $"HTTP {(int)response.StatusCode} {response.ReasonPhrase}: {responseContent}";
                 _logger.LogError("HTTP error clearing hold for record {RecordKey}: {ErrorMessage}", record.GetKey(), errorMessage);
                 return ProcessingResult.CreateFailure(record, errorMessage);
             }
@@ -236,7 +236,7 @@ public class HttpApiClientService : IApiClientService
                         record.DonationNumber, record.ProductCode, record.LocationCode, (int)response.StatusCode, response.ReasonPhrase);
                 }
 
-                var errorMessage = ExtractErrorMessage(responseContent, (int)response.StatusCode, response.ReasonPhrase);
+                var errorMessage = $"HTTP {(int)response.StatusCode} {response.ReasonPhrase}: {responseContent}";
                 _logger.LogError("HTTP error clearing discard fate for record {RecordKey}: {ErrorMessage}", record.GetKey(), errorMessage);
                 return ProcessingResult.CreateFailure(record, errorMessage);
             }
@@ -283,34 +283,5 @@ public class HttpApiClientService : IApiClientService
             _logger.LogError(ex, "Unexpected error clearing discard fate for record {RecordKey}", record.GetKey());
             return ProcessingResult.CreateFailure(record, errorMessage);
         }
-    }
-
-    private static string ExtractErrorMessage(string responseContent, int statusCode, string? reasonPhrase)
-    {
-        try
-        {
-            // Try to parse the JSON error response and extract the message
-            using var document = JsonDocument.Parse(responseContent);
-            if (document.RootElement.TryGetProperty("message", out var messageElement))
-            {
-                var message = messageElement.GetString();
-                if (!string.IsNullOrEmpty(message))
-                {
-                    return $"HTTP {statusCode} {reasonPhrase}: {message}";
-                }
-            }
-        }
-        catch (JsonException)
-        {
-            // If JSON parsing fails, fall back to including the raw response
-            // but truncate it to avoid very long error messages
-        }
-
-        // Fallback: truncate the response content to avoid excessively long error messages
-        var truncatedContent = responseContent.Length > 200 
-            ? responseContent.Substring(0, 200) + "..." 
-            : responseContent;
-        
-        return $"HTTP {statusCode} {reasonPhrase}: {truncatedContent}";
     }
 }
